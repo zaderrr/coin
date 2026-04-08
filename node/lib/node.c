@@ -111,7 +111,7 @@ int listen_for_message(struct pollfd *fds, int *nfds) {
     if (n <= 0) {
       close(fds[i].fd);
       fds[i] = fds[*nfds - 1];
-      nfds--;
+      *nfds -= 1;
       i--;
     } else {
       buf[n] = '\0';
@@ -123,5 +123,18 @@ int listen_for_message(struct pollfd *fds, int *nfds) {
       free(message);
     }
   }
+  return 0;
+}
+
+int read_friends(char *file_location, char *friends) {
+  FILE *fptr;
+  fptr = fopen(file_location, "r+");
+  if (fptr == NULL) {
+    printf("Couldn't open friend list");
+    return 1;
+  }
+  char buff[128];
+  fgets(buff, 128, fptr);
+  printf("%s", buff);
   return 0;
 }

@@ -7,8 +7,8 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#define PORT 8080
 #define PUB_KEY_LEN 32
+#define PORT 8080
 
 int connect_to_node(unsigned char *public_key) {
   int status, valread, client_fd;
@@ -21,8 +21,6 @@ int connect_to_node(unsigned char *public_key) {
   serv_addr.sin_family = AF_INET;
   serv_addr.sin_port = htons(PORT);
 
-  // Convert IPv4 and IPv6 addresses from text to binary
-  // form
   if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
     printf("\nInvalid address/ Address not supported \n");
     return -1;
@@ -168,5 +166,83 @@ int32_t *read_balance(unsigned char *balance) {
 int handle_init_balance(unsigned char *balance, struct pollfd client_fd) {
   int32_t *bal = read_balance(balance);
   printf("Balance: %d\n", *bal);
+  return 0;
+}
+
+int read_friends(char *file_location, char *friends) {
+  FILE *fptr;
+  fptr = fopen(file_location, "r+");
+  if (fptr == NULL) {
+    printf("Couldn't open friend list");
+    return 1;
+  }
+  char buff[1024];
+  fgets(buff, 1024, fptr);
+  printf("%s", buff);
+  return 0;
+}
+
+int handle_decoded(Message *message, struct pollfd client_fd) {
+  switch (message->header->type) {
+  case INIT_BALANCE: {
+    handle_init_balance(message->payload, client_fd);
+  }
+  default: {
+    break;
+  }
+  }
+  return 0;
+}
+
+int listen_to_node(struct pollfd *srv) {
+  int ready = poll(srv, 1, -1);
+  if (ready < 0) {
+    perror("poll");
+    return 1;
+  }
+  if ((srv->revents & POLLIN)) {
+    unsigned char buf[4096];
+    ssize_t n = recv(srv->fd, buf, sizeof(buf), 0);
+    if (n <= 0) {
+      close(srv->fd);
+    } else {
+      buf[n] = '\0';
+      printf("Message received\n");
+      Message *message;
+      decode_message(buf, &message);
+      handle_decoded(message, *srv);
+      free(message->payload);
+      free(message->header);
+      free(message);
+    }
+  }
+  return 0;
+}
+
+int get_password(char *password) {
+  printf("Enter password: ");
+  fgets(password, sizeof password, stdin);
+  password[strcspn(password, "\n")] = '\0';
+  return 1;
+}
+
+int init_wallet(Wallet *wallet) {
+  char walletLoc[512];
+  const char *home = getenv("HOME");
+  if (!home) {
+    fprintf(stderr, "HOME not set\n");
+    return 1;
+  }
+  snprintf(walletLoc, sizeof walletLoc, "%s/Documents/keys/wallet.coin", home);
+  FILE *fptr;
+  fptr = fopen(walletLoc, "rb");
+  char password[128];
+  get_password(password);
+  if (fptr == NULL) {
+    printf("Creating wallet...\n");
+    create_wallet(wallet, password);
+  } else {
+    decrypt_wallet(fptr, wallet, password);
+  }
   return 0;
 }

@@ -6,7 +6,11 @@
 #include <unistd.h>
 
 int main(int argc, char const *argv[]) {
-
+  // build history
+  char buff[128];
+  char *location = "text.txt";
+  read_friends(location, buff);
+  //  Start node
   struct pollfd *fds = start_server();
   int nfds = 1;
   while (1) {

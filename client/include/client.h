@@ -22,3 +22,6 @@ int create_wallet(Wallet *wallet, char *password);
 int decrypt_wallet(FILE *fptr, Wallet *wallet, char *password);
 int32_t *read_balance(unsigned char *balance);
 int handle_init_balance(unsigned char *balance, struct pollfd client_fd);
+int listen_to_node(struct pollfd *srv);
+int read_friends(char *file_location, char *friends);
+int init_wallet(Wallet *wallet);
