@@ -202,7 +202,6 @@ int listen_to_node(struct pollfd *srv) {
       close(srv->fd);
     } else {
       buf[n] = '\0';
-      printf("Message received\n");
       Message *message;
       decode_message(buf, &message);
       handle_decoded(message, *srv);

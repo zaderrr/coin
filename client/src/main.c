@@ -29,12 +29,11 @@ int main() {
   char buff[128];
   Peer *peers;
 
-  printf("{");
+  printf("Wallet: 0x");
   for (size_t i = 0; i < 32; i++) {
-    printf("0x%02x%s", wallet->public_key[i], i < 32 - 1 ? ", " : "");
+    printf("%02x", wallet->public_key[i]);
   }
-  printf("}\n");
-  return 0;
+  printf("\n");
   get_peers(&peers);
   int client_fd = connect_to_node(peers[0], wallet->public_key);
   struct pollfd srv;

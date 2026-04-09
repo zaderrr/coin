@@ -1,4 +1,8 @@
+#ifndef COIN_BLOCK_H
+#define COIN_BLOCK_H
+
 #include <stdint.h>
+#include <stddef.h>
 
 typedef enum {
   TX_TRANSFER,
@@ -46,3 +50,13 @@ typedef struct {
   validator *validators;
   block *previous_block;
 } state;
+
+int compute_merkle_root(uint8_t **leaves, uint32_t count, uint8_t *root,
+                        size_t leaf_size);
+uint8_t *account_to_leaf(const account *acc);
+uint8_t *validator_to_leaf(const validator *val);
+block build_genesis(account *accounts, validator *validators);
+int build_gen_state(state *current_state);
+int init_chain(state *current_state, block *gen_block);
+
+#endif
