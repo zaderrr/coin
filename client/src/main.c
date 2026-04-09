@@ -1,3 +1,4 @@
+#include "block.h"
 #include "client.h"
 #include <arpa/inet.h>
 #include <dirent.h>
@@ -28,11 +29,8 @@ int main() {
   init_wallet(wallet);
   char buff[128];
   Peer *peers;
-
-  printf("Wallet: 0x");
-  for (size_t i = 0; i < 32; i++) {
-    printf("%02x", wallet->public_key[i]);
-  }
+  printf("Wallet: ");
+  print_public_key(wallet->public_key);
   printf("\n");
   get_peers(&peers);
   int client_fd = connect_to_node(peers[0], wallet->public_key);

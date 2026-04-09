@@ -117,3 +117,20 @@ int init_chain(state *current_state, block *gen_block) {
       build_genesis(current_state->accounts, current_state->validators);
   return 0;
 }
+
+uint64_t get_balance(unsigned char *public_key, state *current_state) {
+  account *accounts = current_state->accounts;
+  for (int i = 0; i < current_state->accounts_count; i++) {
+    if (memcmp(accounts[i].public_key, public_key, 32) == 0) {
+      return accounts[i].balance;
+    }
+  }
+  return 0;
+}
+
+void print_public_key(unsigned char *public_key) {
+  printf("0x");
+  for (int i = 0; i < 32; i++) {
+    printf("%02x", public_key[i]);
+  }
+}

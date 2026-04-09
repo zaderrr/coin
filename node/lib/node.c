@@ -15,16 +15,17 @@
 unsigned char *get_public_key(unsigned char *buff) {
   unsigned char *public_key;
   public_key = malloc(32);
-  memcpy(public_key, buff + 5, 32);
+  memcpy(public_key, buff, 32);
   return public_key;
 }
 
-unsigned char *handle_handshake(unsigned char *buff, struct pollfd client_fd) {
+unsigned char *handle_handshake(unsigned char *buff, struct pollfd client_fd,
+                                state *current_state) {
   unsigned char *public_key = get_public_key(buff);
   unsigned char res[1024];
   // Write response + send
   write_header(INIT_BALANCE, sizeof(int), res);
-  int balance = 100;
+  int balance = get_balance(public_key, current_state);
   balance = htonl(balance);
   // Write balance to response
   memcpy(res + 5, &balance, 4);
@@ -92,10 +93,11 @@ int accept_connections(struct pollfd *fds, int *nfds) {
   return 0;
 }
 
-int handle_decoded(Message *message, struct pollfd client_fd) {
+int handle_decoded(Message *message, struct pollfd client_fd,
+                   state *current_state) {
   switch (message->header->type) {
   case HANDSHAKE: {
-    handle_handshake(message->payload, client_fd);
+    handle_handshake(message->payload, client_fd, current_state);
   }
   default: {
     break;
@@ -104,7 +106,7 @@ int handle_decoded(Message *message, struct pollfd client_fd) {
   return 0;
 }
 
-int listen_for_message(struct pollfd *fds, int *nfds) {
+int listen_for_message(struct pollfd *fds, int *nfds, state *current_state) {
   for (int i = 1; i < *nfds; i++) {
     if (!(fds[i].revents & POLLIN))
       continue;
@@ -116,10 +118,9 @@ int listen_for_message(struct pollfd *fds, int *nfds) {
       *nfds -= 1;
       i--;
     } else {
-      buf[n] = '\0';
       Message *message;
       decode_message(buf, &message);
-      handle_decoded(message, fds[i]);
+      handle_decoded(message, fds[i], current_state);
       free(message->payload);
       free(message->header);
       free(message);

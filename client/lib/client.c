@@ -1,4 +1,5 @@
 #include "client.h"
+#include "block.h"
 #include "ed25519.h"
 #include "sodium.h"
 #include <arpa/inet.h>

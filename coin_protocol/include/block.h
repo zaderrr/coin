@@ -1,8 +1,8 @@
 #ifndef COIN_BLOCK_H
 #define COIN_BLOCK_H
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 typedef enum {
   TX_TRANSFER,
@@ -58,5 +58,6 @@ uint8_t *validator_to_leaf(const validator *val);
 block build_genesis(account *accounts, validator *validators);
 int build_gen_state(state *current_state);
 int init_chain(state *current_state, block *gen_block);
-
+uint64_t get_balance(unsigned char *public_key, state *current_state);
+void print_public_key(unsigned char *public_key);
 #endif
