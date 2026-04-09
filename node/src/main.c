@@ -4,12 +4,54 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
-int main(int argc, char const *argv[]) {
+#define MAX_TX 256
+int get_password(char *password) {
+  printf("Enter password: ");
+  fgets(password, sizeof password, stdin);
+  password[strcspn(password, "\n")] = '\0';
+  return 1;
+}
+int get_private_key(unsigned char *private_key) {
+  char walletLoc[512];
+  const char *home = getenv("HOME");
+  if (!home) {
+    fprintf(stderr, "HOME not set\n");
+    return 1;
+  }
+  snprintf(walletLoc, sizeof walletLoc, "%s/Documents/keys/wallet.coin", home);
+  FILE *fptr;
+  fptr = fopen(walletLoc, "rb");
+  char password[128];
+  get_password(password);
+  if (fptr == NULL) {
+    printf("No wallet, create one with the client first\n");
+    return 1;
+  } else {
+    decrypt_wallet(fptr, private_key, password);
+  }
+  return 0;
+}
 
-  // build history
+int main(int argc, char const *argv[]) {
+  // build chain
+  block *gen_block = malloc(sizeof(block));
+  state *current_state = malloc(sizeof(state));
+  node_ctx ctx = {0};
+  ctx.current_state = current_state;
+  ctx.mempool = malloc(sizeof(mempool));
+  ctx.mempool->tx = malloc(MAX_TX);
+  ctx.mempool->tx_count = 0;
+  init_chain(current_state, gen_block);
+
+  if (argc > 1 && strcmp(argv[1], "--validate") == 0) {
+    ctx.is_validator = true;
+    // get validator key
+    get_private_key(ctx.signing_key);
+  }
 
   char buff[128];
   char *location = "text.txt";
@@ -17,12 +59,9 @@ int main(int argc, char const *argv[]) {
   //   Start node
   struct pollfd *fds = start_server();
   int nfds = 1;
-  block *gen_block = malloc(sizeof(block));
-  state *current_state = malloc(sizeof(state));
-  init_chain(current_state, gen_block);
   while (1) {
     accept_connections(fds, &nfds);
-    listen_for_message(fds, &nfds, current_state);
+    listen_for_message(fds, &nfds, ctx);
   }
   return 0;
 }
