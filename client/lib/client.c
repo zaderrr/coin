@@ -4,7 +4,9 @@
 #include "sodium.h"
 #include <arpa/inet.h>
 #include <message.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -190,26 +192,63 @@ int handle_decoded(Message *message, struct pollfd client_fd) {
   return 0;
 }
 
-int listen_to_node(struct pollfd *srv) {
-  int ready = poll(srv, 1, -1);
-  if (ready < 0) {
-    perror("poll");
+int handle_command(char *cmd, command *command) {
+  char *token = strtok(cmd, " \n");
+  if (!token)
     return 1;
-  }
-  if ((srv->revents & POLLIN)) {
-    unsigned char buf[4096];
-    ssize_t n = recv(srv->fd, buf, sizeof(buf), 0);
-    if (n <= 0) {
-      close(srv->fd);
-    } else {
-      buf[n] = '\0';
-      Message *message;
-      decode_message(buf, &message);
-      handle_decoded(message, *srv);
-      free(message->payload);
-      free(message->header);
-      free(message);
+  if (strncmp(cmd, "balance", 7) == 0) {
+    return 1;
+  } else if (strcmp(token, "send") == 0) {
+    char *amount_str = strtok(NULL, " \n");
+    char *address_str = strtok(NULL, " \n");
+
+    if (!amount_str || !address_str) {
+      printf("Usage: send <amount> <address>\n");
+      return 1;
     }
+
+    uint64_t amount = strtoull(amount_str, NULL, 10);
+
+    uint8_t receiver[32];
+    for (int i = 0; i < 32; i++) {
+      sscanf(address_str + i * 2, "%2hhx", &receiver[i]);
+    }
+    char *args[2];
+    args[0] = amount_str;
+    args[1] = address_str;
+    command->type = SEND;
+    command->arg_count = 2;
+    command->args = malloc(sizeof(char *) * 2);
+    command->args[0] = args[0];
+    command->args[1] = args[1];
+
+    return 0;
+  }
+  return 1;
+}
+int listen_for_command(struct pollfd *infd, command *cmd) {
+  char command[256];
+  ssize_t n = read(STDIN_FILENO, command, sizeof(command) - 1);
+  if (n > 0) {
+    command[n] = '\0';
+    return handle_command(command, cmd);
+  }
+  return 1;
+}
+
+int peer_message(struct pollfd *srv) {
+  unsigned char buf[4096];
+  ssize_t n = recv(srv->fd, buf, sizeof(buf), 0);
+  if (n <= 0) {
+    close(srv->fd);
+  } else {
+    buf[n] = '\0';
+    Message *message;
+    decode_message(buf, &message);
+    handle_decoded(message, *srv);
+    free(message->payload);
+    free(message->header);
+    free(message);
   }
   return 0;
 }

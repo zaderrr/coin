@@ -34,10 +34,27 @@ int main() {
   printf("\n");
   get_peers(&peers);
   int client_fd = connect_to_node(peers[0], wallet->public_key);
-  struct pollfd srv;
-  srv.fd = client_fd;
-  srv.events = POLLIN;
+  struct pollfd fds[2];
+  fds[0].fd = client_fd;
+  fds[0].events = POLLIN;
+  fds[1].fd = STDIN_FILENO;
+  fds[1].events = POLLIN;
   while (1) {
-    int listen = listen_to_node(&srv);
+    int ready = poll(fds, 2, -1);
+    if (ready < 0) {
+      perror("poll");
+      return 1;
+    }
+    if ((fds[0].revents & POLLIN)) {
+      peer_message(&fds[0]);
+    }
+    if ((fds[1].revents & POLLIN)) {
+      command *cmd = malloc(sizeof(command));
+      int res = listen_for_command(&fds[1], cmd);
+      if (res == 0) {
+        // Do something with command...
+      }
+      free(cmd);
+    }
   }
 }
