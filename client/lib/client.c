@@ -3,6 +3,8 @@
 #include "ed25519.h"
 #include "sodium.h"
 #include <arpa/inet.h>
+#include <ctype.h>
+#include <math.h>
 #include <message.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -53,7 +55,7 @@ int create_wallet(Wallet *wallet, char *password) {
   unsigned char private_key[64];
   if (generate_wallet(public_key, private_key) != 1) {
     printf("problem generating wallet\n");
-    return 0;
+    return 1;
   }
   printf("Wallet created!:)\n");
   struct FileEncryption *file;
@@ -65,7 +67,7 @@ int create_wallet(Wallet *wallet, char *password) {
   memcpy(wallet->private_key, private_key, 64);
   write_keys_to_file(file);
   free(file);
-  return 1;
+  return 0;
 }
 
 int encrypt_keys(unsigned char public_key[32], unsigned char private_key[64],
@@ -207,20 +209,31 @@ int handle_command(char *cmd, command *command) {
       return 1;
     }
 
-    uint64_t amount = strtoull(amount_str, NULL, 10);
+    char *endptr;
+    uint64_t amount = strtoull(amount_str, &endptr, 10);
+
+    if (*endptr != '\0') {
+      printf("Amount is not a valid number\n");
+      return 1;
+    }
+
+    for (int i = 0; i < 64; i++) {
+      if (!isxdigit(address_str[i])) {
+        printf("Invalid recipient address\n");
+        return 1;
+      }
+    }
 
     uint8_t receiver[32];
     for (int i = 0; i < 32; i++) {
       sscanf(address_str + i * 2, "%2hhx", &receiver[i]);
     }
-    char *args[2];
-    args[0] = amount_str;
-    args[1] = address_str;
+
     command->type = SEND;
     command->arg_count = 2;
     command->args = malloc(sizeof(char *) * 2);
-    command->args[0] = args[0];
-    command->args[1] = args[1];
+    command->args[0] = amount_str;
+    command->args[1] = address_str;
 
     return 0;
   }
@@ -274,9 +287,9 @@ int init_wallet(Wallet *wallet) {
   get_password(password);
   if (fptr == NULL) {
     printf("Creating wallet...\n");
-    create_wallet(wallet, password);
+    return create_wallet(wallet, password);
   } else {
-    decrypt_wallet(fptr, wallet, password);
+    return decrypt_wallet(fptr, wallet, password);
   }
   return 0;
 }

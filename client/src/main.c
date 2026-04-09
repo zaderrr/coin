@@ -26,7 +26,10 @@ int main() {
   if (sodium_init() < 0)
     return 1;
   Wallet *wallet = malloc(sizeof(Wallet));
-  init_wallet(wallet);
+  if (init_wallet(wallet) == 1) {
+    printf("Error initializing wallet\n");
+    return 1;
+  }
   char buff[128];
   Peer *peers;
   printf("Wallet: ");
@@ -53,6 +56,8 @@ int main() {
       int res = listen_for_command(&fds[1], cmd);
       if (res == 0) {
         // Do something with command...
+        printf("%s\n", cmd->args[0]);
+        free(cmd->args);
       }
       free(cmd);
     }
