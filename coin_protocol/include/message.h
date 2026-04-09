@@ -8,6 +8,8 @@ typedef enum MessageType {
   HANDSHAKE,
   INIT_BALANCE,
   TX_SUBMIT,
+  GET_BLOCK,
+  BLOCK,
   BLOCK_PROPOSAL
 } MessageType;
 

@@ -1,24 +1,42 @@
 #include "client.h"
-#include "ed25519.h"
+#include <arpa/inet.h>
 #include <dirent.h>
 #include <limits.h>
 #include <message.h>
 #include <netinet/in.h>
 #include <sodium.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
+
+int get_peers(Peer **peers) {
+  Peer *p = malloc(sizeof(Peer) * 2);
+  p[0].IP = inet_addr("127.0.0.1");
+  p[0].PORT = 8080;
+  p[1].IP = inet_addr("127.0.0.1");
+  p[1].PORT = 8090;
+  *peers = p;
+  return 0;
+}
 
 int main() {
   if (sodium_init() < 0)
     return 1;
   Wallet *wallet = malloc(sizeof(Wallet));
   init_wallet(wallet);
-  int client_fd = connect_to_node(wallet->public_key);
+  char buff[128];
+  Peer *peers;
+
+  printf("{");
+  for (size_t i = 0; i < 32; i++) {
+    printf("0x%02x%s", wallet->public_key[i], i < 32 - 1 ? ", " : "");
+  }
+  printf("}\n");
+  return 0;
+  get_peers(&peers);
+  int client_fd = connect_to_node(peers[0], wallet->public_key);
   struct pollfd srv;
   srv.fd = client_fd;
   srv.events = POLLIN;

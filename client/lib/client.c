@@ -8,9 +8,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #define PUB_KEY_LEN 32
-#define PORT 8080
 
-int connect_to_node(unsigned char *public_key) {
+int connect_to_node(Peer peer, unsigned char *public_key) {
   int status, valread, client_fd;
   struct sockaddr_in serv_addr;
   if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -19,12 +18,8 @@ int connect_to_node(unsigned char *public_key) {
   }
 
   serv_addr.sin_family = AF_INET;
-  serv_addr.sin_port = htons(PORT);
-
-  if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
-    printf("\nInvalid address/ Address not supported \n");
-    return -1;
-  }
+  serv_addr.sin_port = htons(peer.PORT);
+  serv_addr.sin_addr.s_addr = peer.IP;
 
   if ((status = connect(client_fd, (struct sockaddr *)&serv_addr,
                         sizeof(serv_addr))) < 0) {
