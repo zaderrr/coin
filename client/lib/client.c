@@ -328,6 +328,8 @@ transaction create_tx(char **args, Wallet *wallet) {
   transaction tx = {0};
   tx.amount = amount;
   tx.type = TX_TRANSFER;
+
+  tx.nonce = 0;
   memcpy(tx.from, wallet->public_key, 32);
   memcpy(tx.to, args[1], 32);
 

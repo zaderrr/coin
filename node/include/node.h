@@ -11,6 +11,7 @@
 typedef struct {
   transaction *tx;
   uint32_t tx_count;
+  uint32_t capacity;
 } mempool;
 
 typedef struct {

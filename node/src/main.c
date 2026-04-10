@@ -1,3 +1,4 @@
+#include "block.h"
 #include <netinet/in.h>
 #include <node.h>
 #include <poll.h>
@@ -43,8 +44,9 @@ int main(int argc, char const *argv[]) {
   node_ctx ctx = {0};
   ctx.current_state = current_state;
   ctx.mempool = malloc(sizeof(mempool));
-  ctx.mempool->tx = malloc(MAX_TX);
+  ctx.mempool->tx = malloc(sizeof(transaction) * MAX_TX);
   ctx.mempool->tx_count = 0;
+  ctx.mempool->capacity = MAX_TX;
   init_chain(current_state, gen_block);
 
   if (argc > 1 && strcmp(argv[1], "--validate") == 0) {

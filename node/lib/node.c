@@ -121,15 +121,61 @@ int verify_transaction(unsigned char *payload, transaction *tx) {
   return ed25519_verify(tx->signature, payload, 81, tx->from);
 }
 
-int handle_tx(unsigned char *payload, struct pollfd client_fd,
-              state *current_state) {
+int mempool_contains(mempool *pool, transaction *tx) {
+  for (int i = 0; i < pool->tx_count; i++) {
+    if (memcmp(pool->tx[i].signature, tx->signature, 64) == 0) {
+      return 0;
+    }
+  }
+  return 1;
+}
+
+int broadcast_tx(node_ctx ctx, transaction tx) {
+  // This is where we tell our friends about the new transaction
+}
+
+int handle_tx(unsigned char *payload, struct pollfd client_fd, node_ctx *ctx) {
   transaction tx = read_tx_from_buff(payload);
-  if (verify_transaction(payload, &tx) == 1) {
-    printf("Signature correct.\n");
-  } else {
+  if (verify_transaction(payload, &tx) != 1) {
     printf("Invalid signature.\n");
+    return 1;
   }
   // Account validation...
+
+  if (ctx->mempool->tx_count >= ctx->mempool->capacity) {
+    printf("Mempool full\n");
+    return 1;
+  }
+  // Check we don't already have this transaction
+  if (mempool_contains(ctx->mempool, &tx) == 0) {
+    printf("We already have this tx...\n");
+    return 1;
+  }
+  account *account = get_account(ctx->current_state, tx.from);
+  if (account == NULL) {
+    return 1;
+  }
+  // Check account can withdraw (validator)
+  if (tx.type == TX_STAKE_WITHDRAW) {
+    validator *validator = get_validator(ctx->current_state, tx.from);
+    if (validator == NULL) {
+      return 1;
+    }
+
+    if (can_wirthdraw_stake(account, validator, &tx, ctx->current_state) == 1) {
+      return 1;
+    }
+    printf("Valid stake withdrawl!");
+
+  } else if (tx.type == TX_TRANSFER) {
+    // Validate transfer, balance + nonce
+    if (validate_funds(account, ctx->current_state, &tx) == 1) {
+      return 1;
+    }
+  }
+  int mempool_count = ctx->mempool->tx_count;
+  ctx->mempool->tx[mempool_count] = tx;
+  // TODO: Broadcast
   return 0;
 }
 
@@ -140,7 +186,7 @@ int handle_decoded(Message *message, struct pollfd client_fd, node_ctx ctx) {
     break;
   }
   case TX_SUBMIT: {
-    handle_tx(message->payload, client_fd, ctx.current_state);
+    handle_tx(message->payload, client_fd, &ctx);
     break;
   }
   default: {

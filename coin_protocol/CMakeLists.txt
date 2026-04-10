@@ -1,6 +1,7 @@
 add_library(coin_protocol SHARED
   src/message.c
   src/block.c
+  src/protocol.c
 )
 
 target_include_directories(coin_protocol PUBLIC
