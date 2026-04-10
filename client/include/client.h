@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/poll.h>
+
 typedef struct FileEncryption {
   unsigned char *CipherText;
   unsigned char *nonce;
@@ -11,7 +12,6 @@ typedef struct FileEncryption {
 typedef struct Wallet {
   unsigned char *public_key;
   unsigned char *private_key;
-
 } Wallet;
 
 enum command_type {
@@ -40,4 +40,4 @@ int listen_for_command(struct pollfd *infd, command *cmd);
 int listen_to_node(struct pollfd *srv);
 int read_friends(char *file_location, char *friends);
 int init_wallet(Wallet *wallet);
-void execute_command(command *cmd, int fd);
+void execute_command(command *cmd, int fd, Wallet *wallet);

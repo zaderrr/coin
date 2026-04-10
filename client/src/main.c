@@ -57,7 +57,7 @@ int main() {
       int res = listen_for_command(&fds[1], cmd);
       if (res == 0) {
         // Do something with command...
-        execute_command(cmd, fds[0].fd);
+        execute_command(cmd, fds[0].fd, wallet);
         free(cmd->args);
       }
       free(cmd);

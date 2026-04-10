@@ -133,4 +133,5 @@ void print_public_key(unsigned char *public_key) {
   for (int i = 0; i < 32; i++) {
     printf("%02x", public_key[i]);
   }
+  printf("\n");
 }
