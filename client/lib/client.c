@@ -6,6 +6,7 @@
 #include <ctype.h>
 #include <math.h>
 #include <message.h>
+#include <netinet/in.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -163,6 +164,7 @@ int32_t *read_balance(unsigned char *balance) {
   *bal = ntohl(*bal);
   return bal;
 }
+
 int handle_init_balance(unsigned char *balance, struct pollfd client_fd) {
   int32_t *bal = read_balance(balance);
   printf("Balance: %d\n", *bal);
@@ -224,7 +226,7 @@ int handle_command(char *cmd, command *command) {
       }
     }
 
-    uint8_t receiver[32];
+    unsigned char receiver[32];
     for (int i = 0; i < 32; i++) {
       sscanf(address_str + i * 2, "%2hhx", &receiver[i]);
     }
@@ -232,13 +234,14 @@ int handle_command(char *cmd, command *command) {
     command->type = SEND;
     command->arg_count = 2;
     command->args = malloc(sizeof(char *) * 2);
-    command->args[0] = amount_str;
-    command->args[1] = address_str;
-
+    command->args[0] = strdup(amount_str);
+    command->args[1] = malloc(32);
+    memcpy(command->args[1], receiver, 32);
     return 0;
   }
   return 1;
 }
+
 int listen_for_command(struct pollfd *infd, command *cmd) {
   char command[256];
   ssize_t n = read(STDIN_FILENO, command, sizeof(command) - 1);
@@ -292,4 +295,31 @@ int init_wallet(Wallet *wallet) {
     return decrypt_wallet(fptr, wallet, password);
   }
   return 0;
+}
+
+int send_transaction(char **args, int fd) {
+  uint64_t amount = strtoull(args[0], NULL, 10);
+  unsigned char recipient[32];
+  memcpy(recipient, args[1], 32);
+  printf("Sending %lu to ", amount);
+  print_public_key(recipient);
+  unsigned char buff[256];
+  int32_t payload_len = sizeof(amount) + sizeof(recipient);
+  amount = htonl(amount);
+  write_header(TX_SUBMIT, payload_len, buff);
+  // + 5 header offset
+  memcpy(buff + 5, &amount, 8);
+  // + 5 + 8 offset for amount + header
+  memcpy(buff + 13, recipient, 32);
+  send(fd, buff, sizeof(buff), 0);
+  free(args[0]);
+  free(args[1]);
+  printf("\n");
+  return 0;
+}
+
+void execute_command(command *cmd, int fd) {
+  if (cmd->type == SEND) {
+    send_transaction(cmd->args, fd);
+  }
 }

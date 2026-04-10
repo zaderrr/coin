@@ -100,6 +100,11 @@ int handle_decoded(Message *message, struct pollfd client_fd, node_ctx ctx) {
   switch (message->header->type) {
   case HANDSHAKE: {
     handle_handshake(message->payload, client_fd, ctx.current_state);
+    break;
+  }
+  case TX_SUBMIT: {
+    // Transaction received...
+    break;
   }
   default: {
     break;

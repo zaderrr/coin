@@ -40,3 +40,4 @@ int listen_for_command(struct pollfd *infd, command *cmd);
 int listen_to_node(struct pollfd *srv);
 int read_friends(char *file_location, char *friends);
 int init_wallet(Wallet *wallet);
+void execute_command(command *cmd, int fd);

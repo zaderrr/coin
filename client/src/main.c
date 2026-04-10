@@ -8,6 +8,7 @@
 #include <sodium.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -56,7 +57,7 @@ int main() {
       int res = listen_for_command(&fds[1], cmd);
       if (res == 0) {
         // Do something with command...
-        printf("%s\n", cmd->args[0]);
+        execute_command(cmd, fds[0].fd);
         free(cmd->args);
       }
       free(cmd);

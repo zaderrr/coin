@@ -37,6 +37,9 @@ int decode_message(unsigned char *buff, Message **message) {
   return 0;
 }
 
+// Writres the header to buff
+// where length = payload length
+// and buff = pointer to buffer that's being sent
 int write_header(MessageType type, uint32_t length, unsigned char *buff) {
   buff[0] = (char)type;
   uint32_t payload_len = htonl(length);
