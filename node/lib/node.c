@@ -82,7 +82,7 @@ struct pollfd *start_server() {
 }
 
 int accept_connections(struct pollfd *fds, int *nfds) {
-  int ready = poll(fds, *nfds, -1);
+  int ready = poll(fds, *nfds, 1000);
   if (ready < 0) {
     perror("poll");
     return 1;
@@ -174,6 +174,7 @@ int handle_tx(unsigned char *payload, struct pollfd client_fd, node_ctx *ctx) {
   }
   int mempool_count = ctx->mempool->tx_count;
   ctx->mempool->tx[mempool_count] = tx;
+  ctx->mempool->tx_count++;
   // TODO: Broadcast
   return 0;
 }

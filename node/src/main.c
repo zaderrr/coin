@@ -55,6 +55,7 @@ int main(int argc, char const *argv[]) {
     // get validator key
     Wallet *wallet = malloc(sizeof(Wallet));
     get_wallet(wallet);
+    ctx.wallet = wallet;
   }
 
   char buff[128];
@@ -66,6 +67,8 @@ int main(int argc, char const *argv[]) {
   while (1) {
     accept_connections(fds, &nfds);
     listen_for_message(fds, &nfds, ctx);
+    if (ctx.is_validator != true) {
+    }
   }
   return 0;
 }
