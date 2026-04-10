@@ -33,30 +33,27 @@ int compute_merkle_root(uint8_t **leaves, uint32_t count, uint8_t *root,
     }
     n = (n + 1) / 2;
   }
-
   memcpy(root, hashes, 32);
   free(hashes);
   return 0;
 }
 
-uint8_t *account_to_leaf(const account *acc) {
-  // leafing this as it is for now, as it works, they're the same size
-  // (also did you like my joke?)
+uint8_t *state_to_leaf(unsigned char *state) {
   size_t leaf_size = 32 + 8 + 8;
   uint8_t *leaf = malloc(leaf_size);
-  memcpy(leaf, acc->public_key, 32);
-  memcpy(leaf + 32, &acc->balance, 8);
-  memcpy(leaf + 40, &acc->nonce, 8);
+  memcpy(leaf, state, 32);
+  memcpy(leaf + 32, state + 32, 8);
+  memcpy(leaf + 40, state + 32 + 8, 8);
   return leaf;
 }
 
-uint8_t *validator_to_leaf(const validator *val) {
-  size_t leaf_size = 32 + 8 + 8;
-  uint8_t *leaf = malloc(leaf_size);
-  memcpy(leaf, val->public_key, 32);
-  memcpy(leaf + 32, &val->stake, 8);
-  memcpy(leaf + 40, &val->block_joined, 8);
-  return leaf;
+void free_leaves(unsigned char **leaves, size_t count) {
+  if (!leaves)
+    return;
+  for (size_t i = 0; i < count; i++) {
+    free(leaves[i]);
+  }
+  free(leaves);
 }
 
 block build_genesis(account *accounts, validator *validators) {
@@ -71,14 +68,13 @@ block build_genesis(account *accounts, validator *validators) {
       .tx_root = {0},
   };
   size_t leaf_size = 32 + 8 + 8;
-  uint8_t *leaf = account_to_leaf(&accounts[0]);
-  compute_merkle_root(&leaf, 1, genesis.state_root, leaf_size);
+  uint8_t *acc_leaf = state_to_leaf((unsigned char *)&accounts[0]);
+  uint8_t *val_leaf = state_to_leaf((unsigned char *)&validators[0]);
+  compute_merkle_root(&acc_leaf, 1, genesis.state_root, leaf_size);
+  compute_merkle_root(&val_leaf, 1, genesis.validator_root, leaf_size);
 
-  free(leaf);
-  leaf = validator_to_leaf(&validators[0]);
-  compute_merkle_root(&leaf, 1, genesis.validator_root, leaf_size);
-  free(leaf);
-
+  free(acc_leaf);
+  free(val_leaf);
   return genesis;
 }
 
@@ -141,4 +137,18 @@ uint64_t htonll(uint64_t val) {
     return __builtin_bswap64(val);
   }
   return val;
+}
+
+int hash_block(block *block, unsigned char buff[32]) {
+  // Height, prev_hash, tx_root, proposer, timestamp
+  int size = 4 + 32 + 32 + 32 + 8;
+
+  unsigned char block_buff[size];
+  memcpy(block_buff, &block->height, 4);
+  memcpy(block_buff + 4, block->prev_hash, 32);
+  memcpy(block_buff + 36, block->tx_root, 32);
+  memcpy(block_buff + 68, block->proposer, 32);
+  memcpy(block_buff + 100, &block->timestamp, 8);
+  crypto_hash_sha256(buff, block_buff, size);
+  return 0;
 }

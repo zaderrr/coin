@@ -2,17 +2,21 @@
 #include "block.h"
 #include "ed25519.h"
 #include "message.h"
+#include "time.h"
 #include <netinet/in.h>
+#include <sodium/crypto_hash_sha256.h>
 #include <sodium/crypto_pwhash.h>
 #include <sodium/crypto_secretbox.h>
 #include <sodium/crypto_sign.h>
 #include <sodium/crypto_verify_64.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/poll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
 #define PORT 8080
@@ -241,5 +245,79 @@ int get_local_blocks() {
   char buff[128];
   fgets(buff, 128, fptr);
   printf("%s", buff);
+  return 0;
+}
+
+unsigned char *build_tx_leaf(transaction *tx) {
+  // From, To, Nonce, signature, type
+  size_t leaf_size = 32 + 32 + 8 + 1;
+  unsigned char type_byte = (unsigned char)tx->type;
+  unsigned char *leaf = malloc(leaf_size);
+  memcpy(leaf, tx->from, 32);
+  memcpy(leaf + 32, tx->to, 32);
+  memcpy(leaf + 64, &tx->nonce, 8);
+  memcpy(leaf + 72, &type_byte, 1);
+
+  return leaf;
+}
+
+int build_root(unsigned char *root, mempool *mempool) {
+  size_t leaf_size = 32 + 32 + 8 + 1;
+
+  unsigned char **leafs = malloc(sizeof(unsigned char *) * mempool->tx_count);
+
+  for (int i = 0; i < mempool->tx_count; i++) {
+    leafs[i] = build_tx_leaf(&mempool->tx[i]);
+  }
+
+  compute_merkle_root(leafs, mempool->tx_count, root, leaf_size);
+  for (int i = 0; i < mempool->tx_count; i++) {
+    free(leafs[i]);
+  }
+  free(leafs);
+  return 0;
+}
+
+int build_root_hash(unsigned char *item, unsigned char *out_buf, int count) {
+  unsigned char **leaves = malloc(sizeof(char *) * count);
+
+  for (int i = 0; i < count; i++) {
+    leaves[i] = state_to_leaf(&item[i]);
+  }
+
+  size_t leaf_size = 32 + 8 + 8;
+  compute_merkle_root(leaves, count, out_buf, leaf_size);
+
+  free_leaves(leaves, count);
+
+  return 0;
+}
+
+int build_next_block(block *previous_block, node_ctx *ctx) {
+  unsigned char prev_hash[32];
+  hash_block(previous_block, prev_hash);
+
+  block next_block = {0};
+  next_block.height = previous_block->height + 1;
+  next_block.tx_count = ctx->mempool->tx_count;
+  next_block.transactions = ctx->mempool->tx;
+  next_block.timestamp = (uint64_t)time(NULL);
+
+  memcpy(next_block.proposer, ctx->wallet->public_key, 32);
+  memcpy(next_block.prev_hash, prev_hash, 32);
+
+  // TODO: Build valid tx list instead of mempool
+  unsigned char root[32];
+  build_root(root, ctx->mempool);
+  memcpy(next_block.tx_root, root, 32);
+
+  unsigned char account_merkle[32];
+  unsigned char val_merkle[32];
+  build_root_hash((unsigned char *)ctx->current_state->accounts, account_merkle,
+                  ctx->current_state->accounts_count);
+  build_root_hash((unsigned char *)ctx->current_state->validators, val_merkle,
+                  ctx->current_state->validators_count);
+  memcpy(next_block.state_root, account_merkle, 32);
+  memcpy(next_block.validator_root, val_merkle, 32);
   return 0;
 }

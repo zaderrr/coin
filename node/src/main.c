@@ -17,6 +17,7 @@ int get_password(char *password) {
   password[strcspn(password, "\n")] = '\0';
   return 1;
 }
+
 int get_wallet(Wallet *wallet) {
   char walletLoc[512];
   const char *home = getenv("HOME");
@@ -67,7 +68,8 @@ int main(int argc, char const *argv[]) {
   while (1) {
     accept_connections(fds, &nfds);
     listen_for_message(fds, &nfds, ctx);
-    if (ctx.is_validator != true) {
+    if (ctx.is_validator == true) {
+      build_next_block(gen_block, &ctx);
     }
   }
   return 0;
