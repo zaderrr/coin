@@ -1,19 +1,8 @@
+#include "wallet.h"
 #include <protocol.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/poll.h>
-
-typedef struct FileEncryption {
-  unsigned char *CipherText;
-  unsigned char *nonce;
-  unsigned char *salt;
-} FileEncryption;
-
-typedef struct Wallet {
-  unsigned char *public_key;
-  unsigned char *private_key;
-} Wallet;
-
 enum command_type {
   BALNCE,
   SEND,

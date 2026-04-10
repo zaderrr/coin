@@ -165,7 +165,6 @@ int handle_tx(unsigned char *payload, struct pollfd client_fd, node_ctx *ctx) {
     if (can_wirthdraw_stake(account, validator, &tx, ctx->current_state) == 1) {
       return 1;
     }
-    printf("Valid stake withdrawl!");
 
   } else if (tx.type == TX_TRANSFER) {
     // Validate transfer, balance + nonce
@@ -241,38 +240,5 @@ int get_local_blocks() {
   char buff[128];
   fgets(buff, 128, fptr);
   printf("%s", buff);
-  return 0;
-}
-
-int decrypt_wallet(FILE *fptr, unsigned char *private_key, char *password) {
-  // Nonce = 24, Salt = 16, MAC = 16, Message = 32 + 64, + 2 commas + 2 space
-  // Salt -> Nonce -> Cipher
-  unsigned char salt[16];
-  unsigned char nonce[24];
-  unsigned char cipher[112]; // 32 + 64
-
-  fread(salt, 1, sizeof(salt), fptr);
-  fread(nonce, 1, sizeof(nonce), fptr);
-  fread(cipher, 1, sizeof(cipher), fptr);
-  unsigned char key[crypto_secretbox_KEYBYTES];
-  if (crypto_pwhash(key, sizeof key, password, strlen(password), salt,
-                    crypto_pwhash_OPSLIMIT_INTERACTIVE,
-                    crypto_pwhash_MEMLIMIT_INTERACTIVE,
-                    crypto_pwhash_ALG_DEFAULT) != 0) {
-    printf("Key derivation failed\n");
-    return 1;
-  }
-  int ciphertext_len = sizeof(cipher);
-  unsigned long long decrypted_len = ciphertext_len - crypto_secretbox_MACBYTES;
-  unsigned char *decrypted = malloc(decrypted_len);
-
-  if (crypto_secretbox_open_easy(decrypted, cipher, ciphertext_len, nonce,
-                                 key) != 0) {
-    printf("Wrong password or tampered data\n");
-    return 1;
-  }
-  private_key = malloc(64);
-
-  memcpy(private_key, &decrypted[32], 64);
   return 0;
 }

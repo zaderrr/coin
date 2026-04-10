@@ -1,4 +1,5 @@
 #include "block.h"
+#include "wallet.h"
 #include <netinet/in.h>
 #include <node.h>
 #include <poll.h>
@@ -16,7 +17,7 @@ int get_password(char *password) {
   password[strcspn(password, "\n")] = '\0';
   return 1;
 }
-int get_private_key(unsigned char *private_key) {
+int get_wallet(Wallet *wallet) {
   char walletLoc[512];
   const char *home = getenv("HOME");
   if (!home) {
@@ -32,7 +33,7 @@ int get_private_key(unsigned char *private_key) {
     printf("No wallet, create one with the client first\n");
     return 1;
   } else {
-    decrypt_wallet(fptr, private_key, password);
+    decrypt_wallet(fptr, wallet, password);
   }
   return 0;
 }
@@ -52,7 +53,8 @@ int main(int argc, char const *argv[]) {
   if (argc > 1 && strcmp(argv[1], "--validate") == 0) {
     ctx.is_validator = true;
     // get validator key
-    get_private_key(ctx.signing_key);
+    Wallet *wallet = malloc(sizeof(Wallet));
+    get_wallet(wallet);
   }
 
   char buff[128];

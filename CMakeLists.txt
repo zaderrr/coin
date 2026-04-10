@@ -29,7 +29,7 @@ add_library(ed25519_lib
   ${ed25519_SOURCE_DIR}/src/verify.c
 )
 target_include_directories(ed25519_lib PUBLIC ${ed25519_SOURCE_DIR}/src)
-
+set_target_properties(ed25519_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_subdirectory(coin_protocol)
 add_subdirectory(client)
 add_subdirectory(node)
