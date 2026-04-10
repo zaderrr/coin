@@ -1,9 +1,12 @@
 #include "node.h"
 #include "block.h"
+#include "ed25519.h"
 #include "message.h"
 #include <netinet/in.h>
 #include <sodium/crypto_pwhash.h>
 #include <sodium/crypto_secretbox.h>
+#include <sodium/crypto_sign.h>
+#include <sodium/crypto_verify_64.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -95,6 +98,40 @@ int accept_connections(struct pollfd *fds, int *nfds) {
   }
   return 0;
 }
+// Read transaction from payload
+transaction read_tx_from_buff(unsigned char *payload) {
+  uint64_t amount_n = 0;
+  uint64_t nonce_n = 0;
+
+  // Acknowledged that this is very fragile
+  transaction tx = {0};
+  memcpy(&tx.type, payload, 1);
+  memcpy(tx.from, payload + 1, 32);
+  memcpy(tx.to, payload + 33, 32);
+  memcpy(&amount_n, payload + 65, 8);
+  memcpy(&nonce_n, payload + 73, 8);
+  memcpy(tx.signature, payload + 81, 64);
+
+  tx.amount = htonll(amount_n);
+  tx.nonce = htonll(nonce_n);
+  return tx;
+}
+
+int verify_transaction(unsigned char *payload, transaction *tx) {
+  return ed25519_verify(tx->signature, payload, 81, tx->from);
+}
+
+int handle_tx(unsigned char *payload, struct pollfd client_fd,
+              state *current_state) {
+  transaction tx = read_tx_from_buff(payload);
+  if (verify_transaction(payload, &tx) == 1) {
+    printf("Signature correct.\n");
+  } else {
+    printf("Invalid signature.\n");
+  }
+  // Account validation...
+  return 0;
+}
 
 int handle_decoded(Message *message, struct pollfd client_fd, node_ctx ctx) {
   switch (message->header->type) {
@@ -103,7 +140,7 @@ int handle_decoded(Message *message, struct pollfd client_fd, node_ctx ctx) {
     break;
   }
   case TX_SUBMIT: {
-    // Transaction received...
+    handle_tx(message->payload, client_fd, ctx.current_state);
     break;
   }
   default: {

@@ -35,7 +35,6 @@ int main() {
   Peer *peers;
   printf("Wallet: ");
   print_public_key(wallet->public_key);
-  printf("\n");
   get_peers(&peers);
   int client_fd = connect_to_node(peers[0], wallet->public_key);
   struct pollfd fds[2];

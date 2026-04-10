@@ -135,3 +135,10 @@ void print_public_key(unsigned char *public_key) {
   }
   printf("\n");
 }
+
+uint64_t htonll(uint64_t val) {
+  if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) {
+    return __builtin_bswap64(val);
+  }
+  return val;
+}

@@ -155,6 +155,7 @@ int decrypt_wallet(FILE *fptr, Wallet *wallet, char *password) {
 
   memcpy(wallet->public_key, decrypted, 32);
   memcpy(wallet->private_key, &decrypted[32], 64);
+
   return 0;
 }
 
@@ -298,12 +299,6 @@ int init_wallet(Wallet *wallet) {
 }
 
 #define TX_DATA_SIZE 81 // 1 + 32 + 32 + 8 + 8
-uint64_t htonll(uint64_t val) {
-  if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) {
-    return __builtin_bswap64(val);
-  }
-  return val;
-}
 
 int write_tx_to_buff(unsigned char *buff, transaction *tx) {
   uint64_t amount_n = htonll(tx->amount);
@@ -313,23 +308,22 @@ int write_tx_to_buff(unsigned char *buff, transaction *tx) {
   memcpy(buff + 33, tx->to, 32);
   memcpy(buff + 65, &amount_n, 8);
   memcpy(buff + 73, &nonce_n, 8);
+  // Signature coppied during signing
   return 0;
 }
 
-// Writes signature of transaction to tx.signature
-int sign_transaction(transaction *tx, unsigned char *private_key) {
-  unsigned char buff[TX_DATA_SIZE];
-  write_tx_to_buff(buff, tx);
-  crypto_sign_detached(tx->signature, NULL, buff, TX_DATA_SIZE, private_key);
+// Writes signature of transaction to tx.signature and copies signature to buff
+int sign_transaction(transaction *tx, Wallet *wallet, unsigned char *buff) {
+  ed25519_sign(tx->signature, buff, TX_DATA_SIZE, wallet->public_key,
+               wallet->private_key);
+
+  memcpy(buff + TX_DATA_SIZE, tx->signature, 64);
   return 0;
 }
 
-// Send **args to fd
-// args[0] = amount, args[1] = recipient
-int send_transaction(char **args, int fd, Wallet *wallet) {
+// Create transaction from args
+transaction create_tx(char **args, Wallet *wallet) {
   uint64_t amount = strtoull(args[0], NULL, 10);
-  printf("Sending %lu to ", amount);
-  print_public_key((unsigned char *)args[1]);
 
   transaction tx = {0};
   tx.amount = amount;
@@ -337,19 +331,24 @@ int send_transaction(char **args, int fd, Wallet *wallet) {
   memcpy(tx.from, wallet->public_key, 32);
   memcpy(tx.to, args[1], 32);
 
-  sign_transaction(&tx, wallet->private_key);
+  return tx;
+}
+
+// Send **args to fd
+// args[0] = amount, args[1] = recipient
+int send_transaction(char **args, int fd, Wallet *wallet) {
+  transaction tx = create_tx(args, wallet);
+
   unsigned char tx_buff[sizeof(transaction)];
+  // Write tx to buffer + sign it.
   write_tx_to_buff(tx_buff, &tx);
-  memcpy(tx_buff + 81, (&tx)->signature, 64);
+  sign_transaction(&tx, wallet, tx_buff);
 
-  // 8 for amount, 32 for public key len;
   int32_t payload_len = sizeof(transaction);
-
   unsigned char buff[256];
   write_header(TX_SUBMIT, payload_len, buff);
   // + 5 header offset
   memcpy(buff + 5, tx_buff, sizeof(transaction));
-
   send(fd, buff, sizeof(buff), 0);
   free(args[0]);
   free(args[1]);
