@@ -104,6 +104,7 @@ int accept_connections(struct pollfd *fds, int *nfds) {
 }
 // Read transaction from payload
 transaction read_tx_from_buff(unsigned char *payload) {
+
   uint64_t amount_n = 0;
   uint64_t nonce_n = 0;
 
@@ -138,13 +139,38 @@ int broadcast_tx(node_ctx ctx, transaction tx) {
   // This is where we tell our friends about the new transaction
 }
 
+int validate_tx(transaction *tx, node_ctx *ctx) {
+  account *account = get_account(ctx->current_state, tx->from);
+  if (account == NULL) {
+    return 1;
+  }
+  // Check account can withdraw (validator)
+  if (tx->type == TX_STAKE_WITHDRAW) {
+    validator *validator = get_validator(ctx->current_state, tx->from);
+    if (validator == NULL) {
+      return 1;
+    }
+
+    if (can_wirthdraw_stake(account, validator, tx, ctx->current_state) == 1) {
+      return 1;
+    }
+
+  } else if (tx->type == TX_TRANSFER) {
+    // Validate transfer, balance + nonce
+    if (validate_funds(account, ctx->current_state, tx) == 1) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
 int handle_tx(unsigned char *payload, struct pollfd client_fd, node_ctx *ctx) {
   transaction tx = read_tx_from_buff(payload);
+  // TODO: Add validation for received data...
   if (verify_transaction(payload, &tx) != 1) {
     printf("Invalid signature.\n");
     return 1;
   }
-  // Account validation...
 
   if (ctx->mempool->tx_count >= ctx->mempool->capacity) {
     printf("Mempool full\n");
@@ -155,26 +181,8 @@ int handle_tx(unsigned char *payload, struct pollfd client_fd, node_ctx *ctx) {
     printf("We already have this tx...\n");
     return 1;
   }
-  account *account = get_account(ctx->current_state, tx.from);
-  if (account == NULL) {
+  if (validate_tx(&tx, ctx) == 1) {
     return 1;
-  }
-  // Check account can withdraw (validator)
-  if (tx.type == TX_STAKE_WITHDRAW) {
-    validator *validator = get_validator(ctx->current_state, tx.from);
-    if (validator == NULL) {
-      return 1;
-    }
-
-    if (can_wirthdraw_stake(account, validator, &tx, ctx->current_state) == 1) {
-      return 1;
-    }
-
-  } else if (tx.type == TX_TRANSFER) {
-    // Validate transfer, balance + nonce
-    if (validate_funds(account, ctx->current_state, &tx) == 1) {
-      return 1;
-    }
   }
   int mempool_count = ctx->mempool->tx_count;
   ctx->mempool->tx[mempool_count] = tx;
@@ -293,7 +301,27 @@ int build_root_hash(unsigned char *item, unsigned char *out_buf, int count) {
   return 0;
 }
 
-int build_next_block(block *previous_block, node_ctx *ctx) {
+int update_state(state *current_state, transaction *tx) {
+  if (tx->type == TX_TRANSFER) {
+    account *from = get_account(current_state, tx->from);
+    account *to = get_account(current_state, tx->to);
+    if (to == NULL) {
+      account *new = malloc(sizeof(account));
+      new->balance = tx->amount;
+      new->nonce = 0;
+
+      memcpy(new->public_key, tx->to, 32);
+      current_state->accounts[current_state->accounts_count] = *new;
+    } else {
+      to->balance += tx->amount;
+    }
+    from->balance -= tx->amount;
+    from->nonce++;
+  }
+  return 0;
+}
+
+block build_next_block(block *previous_block, node_ctx *ctx) {
   unsigned char prev_hash[32];
   hash_block(previous_block, prev_hash);
 
@@ -306,18 +334,34 @@ int build_next_block(block *previous_block, node_ctx *ctx) {
   memcpy(next_block.proposer, ctx->wallet->public_key, 32);
   memcpy(next_block.prev_hash, prev_hash, 32);
 
-  // TODO: Build valid tx list instead of mempool
+  transaction *block_tx = malloc(sizeof(transaction) * ctx->mempool->tx_count);
+
+  int tx_count = 0;
+  for (int i = 0; i < ctx->mempool->tx_count; i++) {
+    transaction tx = ctx->mempool->tx[i];
+    if (validate_tx(&tx, ctx) == 0) {
+      block_tx[tx_count] = tx;
+      tx_count++;
+      update_state(ctx->current_state, &tx);
+    }
+  }
+  next_block.transactions = block_tx;
   unsigned char root[32];
   build_root(root, ctx->mempool);
   memcpy(next_block.tx_root, root, 32);
 
   unsigned char account_merkle[32];
   unsigned char val_merkle[32];
+
   build_root_hash((unsigned char *)ctx->current_state->accounts, account_merkle,
                   ctx->current_state->accounts_count);
   build_root_hash((unsigned char *)ctx->current_state->validators, val_merkle,
                   ctx->current_state->validators_count);
   memcpy(next_block.state_root, account_merkle, 32);
   memcpy(next_block.validator_root, val_merkle, 32);
-  return 0;
+
+  ctx->mempool->tx_count = 0;
+  free(previous_block->transactions);
+
+  return next_block;
 }

@@ -29,5 +29,5 @@ struct pollfd *start_server();
 int accept_connections(struct pollfd *fds, int *nfds);
 int read_friends(char *file_location, char *friends);
 int listen_for_message(struct pollfd *fds, int *nfds, node_ctx ctx);
-int build_next_block(block *previous_block, node_ctx *ctx);
+block build_next_block(block *previous_block, node_ctx *ctx);
 #endif

@@ -41,7 +41,7 @@ int get_wallet(Wallet *wallet) {
 
 int main(int argc, char const *argv[]) {
   // build chain
-  block *gen_block = malloc(sizeof(block));
+  block gen_block = {0};
   state *current_state = malloc(sizeof(state));
   node_ctx ctx = {0};
   ctx.current_state = current_state;
@@ -49,7 +49,7 @@ int main(int argc, char const *argv[]) {
   ctx.mempool->tx = malloc(sizeof(transaction) * MAX_TX);
   ctx.mempool->tx_count = 0;
   ctx.mempool->capacity = MAX_TX;
-  init_chain(current_state, gen_block);
+  init_chain(current_state, &gen_block);
 
   if (argc > 1 && strcmp(argv[1], "--validate") == 0) {
     ctx.is_validator = true;
@@ -69,7 +69,8 @@ int main(int argc, char const *argv[]) {
     accept_connections(fds, &nfds);
     listen_for_message(fds, &nfds, ctx);
     if (ctx.is_validator == true) {
-      build_next_block(gen_block, &ctx);
+      gen_block = build_next_block(&gen_block, &ctx);
+      printf("New block height: %d\n", gen_block.height);
     }
   }
   return 0;
