@@ -86,7 +86,7 @@ struct pollfd *start_server() {
 }
 
 int accept_connections(struct pollfd *fds, int *nfds) {
-  int ready = poll(fds, *nfds, 1000);
+  int ready = poll(fds, *nfds, 100);
   if (ready < 0) {
     perror("poll");
     return 1;

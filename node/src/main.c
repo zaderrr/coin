@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <time.h>
 #include <unistd.h>
 
 #define MAX_TX 256
@@ -65,10 +66,12 @@ int main(int argc, char const *argv[]) {
   //   Start node
   struct pollfd *fds = start_server();
   int nfds = 1;
+  int block_schedule = 10;
   while (1) {
     accept_connections(fds, &nfds);
     listen_for_message(fds, &nfds, ctx);
-    if (ctx.is_validator == true) {
+    if (ctx.is_validator == true &&
+        gen_block.timestamp + block_schedule < time(NULL)) {
       gen_block = build_next_block(&gen_block, &ctx);
       printf("New block height: %d\n", gen_block.height);
     }
