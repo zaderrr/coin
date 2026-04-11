@@ -24,7 +24,6 @@ int create_wallet(Wallet *wallet, char *password) {
     printf("problem generating wallet\n");
     return 1;
   }
-  printf("Wallet created!:)\n");
   wallet->public_key = malloc(32);
   wallet->private_key = malloc(64);
   memcpy(wallet->public_key, public_key, 32);

@@ -20,7 +20,7 @@ int write_keys_to_file(FileEncryption *cipher, char wallet_loc[512]) {
   fptr = fopen(wallet_loc, "wb");
   if (fptr == NULL) {
     printf("Something went badly wrong...\n");
-    return 0;
+    return 1;
   }
   fwrite(cipher->salt, 1, crypto_pwhash_SALTBYTES, fptr);
   fwrite(cipher->nonce, 1, crypto_secretbox_NONCEBYTES, fptr);
@@ -28,7 +28,7 @@ int write_keys_to_file(FileEncryption *cipher, char wallet_loc[512]) {
   fwrite(cipher->CipherText, 1, ciphertext_len, fptr);
   fclose(fptr);
 
-  return 1;
+  return 0;
 }
 
 int connect_to_node(Peer peer, unsigned char *public_key) {
@@ -193,7 +193,7 @@ int init_wallet(Wallet *wallet, char walletLoc[512]) {
     struct FileEncryption *file;
     file = malloc(sizeof(struct FileEncryption));
     encrypt_keys(wallet->public_key, wallet->private_key, password, file);
-    write_keys_to_file(file, walletLoc);
+    return write_keys_to_file(file, walletLoc);
   } else {
     return decrypt_wallet(fptr, wallet, password);
   }
