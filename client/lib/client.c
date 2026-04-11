@@ -15,6 +15,22 @@
 #include <unistd.h>
 #define PUB_KEY_LEN 32
 
+int write_keys_to_file(FileEncryption *cipher, char wallet_loc[512]) {
+  FILE *fptr;
+  fptr = fopen(wallet_loc, "wb");
+  if (fptr == NULL) {
+    printf("Something went badly wrong...\n");
+    return 0;
+  }
+  fwrite(cipher->salt, 1, crypto_pwhash_SALTBYTES, fptr);
+  fwrite(cipher->nonce, 1, crypto_secretbox_NONCEBYTES, fptr);
+  unsigned long long ciphertext_len = crypto_secretbox_MACBYTES + 32 + 64;
+  fwrite(cipher->CipherText, 1, ciphertext_len, fptr);
+  fclose(fptr);
+
+  return 1;
+}
+
 int connect_to_node(Peer peer, unsigned char *public_key) {
   int status, valread, client_fd;
   struct sockaddr_in serv_addr;
@@ -158,21 +174,26 @@ int get_password(char *password) {
   return 1;
 }
 
-int init_wallet(Wallet *wallet) {
-  char walletLoc[512];
+int init_wallet(Wallet *wallet, char walletLoc[512]) {
   const char *home = getenv("HOME");
   if (!home) {
     fprintf(stderr, "HOME not set\n");
     return 1;
   }
-  snprintf(walletLoc, sizeof walletLoc, "%s/Documents/keys/wallet.coin", home);
+  if (strlen(walletLoc) == 0) {
+    snprintf(walletLoc, 512, "%s/Documents/keys/wallet.coin", home);
+  }
   FILE *fptr;
   fptr = fopen(walletLoc, "rb");
   char password[128];
   get_password(password);
   if (fptr == NULL) {
     printf("Creating wallet...\n");
-    return create_wallet(wallet, password);
+    create_wallet(wallet, password);
+    struct FileEncryption *file;
+    file = malloc(sizeof(struct FileEncryption));
+    encrypt_keys(wallet->public_key, wallet->private_key, password, file);
+    write_keys_to_file(file, walletLoc);
   } else {
     return decrypt_wallet(fptr, wallet, password);
   }
@@ -210,6 +231,7 @@ transaction create_tx(char **args, Wallet *wallet) {
   tx.amount = amount;
   tx.type = TX_TRANSFER;
 
+  // TODO: Sync nonce from server
   tx.nonce = 0;
   memcpy(tx.from, wallet->public_key, 32);
   memcpy(tx.to, args[1], 32);
