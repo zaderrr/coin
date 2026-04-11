@@ -56,16 +56,18 @@ int connect_to_node(Peer peer, unsigned char *public_key) {
   return client_fd;
 }
 
-int32_t *read_balance(unsigned char *balance) {
-  int32_t *bal = malloc(4);
-  memcpy(bal, balance, 4);
-  *bal = ntohl(*bal);
+uint64_t *read_balance(unsigned char *balance) {
+  uint64_t *bal = malloc(8);
+  memcpy(bal, balance, 8);
+  *bal = htonll(*bal);
   return bal;
 }
 
-int handle_init_balance(unsigned char *balance, struct pollfd client_fd) {
-  int32_t *bal = read_balance(balance);
-  printf("Balance: %d\n", *bal);
+int handle_init_balance(unsigned char *balance, struct pollfd client_fd,
+                        Wallet *wallet) {
+  uint64_t *bal = read_balance(balance);
+  wallet->balance = *bal;
+  printf("Balance: %lu\n", *bal);
   return 0;
 }
 
@@ -82,10 +84,10 @@ int read_friends(char *file_location, char *friends) {
   return 0;
 }
 
-int handle_decoded(Message *message, struct pollfd client_fd) {
+int handle_decoded(Message *message, struct pollfd client_fd, Wallet *wallet) {
   switch (message->header->type) {
   case INIT_BALANCE: {
-    handle_init_balance(message->payload, client_fd);
+    handle_init_balance(message->payload, client_fd, wallet);
   }
   default: {
     break;
@@ -150,7 +152,7 @@ int listen_for_command(struct pollfd *infd, command *cmd) {
   return 1;
 }
 
-int peer_message(struct pollfd *srv) {
+int peer_message(struct pollfd *srv, Wallet *wallet) {
   unsigned char buf[4096];
   ssize_t n = recv(srv->fd, buf, sizeof(buf), 0);
   if (n <= 0) {
@@ -159,7 +161,7 @@ int peer_message(struct pollfd *srv) {
     buf[n] = '\0';
     Message *message;
     decode_message(buf, &message);
-    handle_decoded(message, *srv);
+    handle_decoded(message, *srv, wallet);
     free(message->payload);
     free(message->header);
     free(message);
@@ -232,7 +234,7 @@ transaction create_tx(char **args, Wallet *wallet) {
   tx.type = TX_TRANSFER;
 
   // TODO: Sync nonce from server
-  tx.nonce = 0;
+  tx.nonce = wallet->nonce;
   memcpy(tx.from, wallet->public_key, 32);
   memcpy(tx.to, args[1], 32);
 
@@ -257,6 +259,7 @@ int send_transaction(char **args, int fd, Wallet *wallet) {
   send(fd, buff, sizeof(buff), 0);
   free(args[0]);
   free(args[1]);
+  wallet->nonce++;
   return 0;
 }
 

@@ -27,6 +27,7 @@ int main(int argc, char *args[]) {
   if (sodium_init() < 0)
     return 1;
   Wallet *wallet = malloc(sizeof(Wallet));
+  wallet->nonce = 0;
   char wallet_loc[512];
   if (argc > 1) {
     if (strcmp(args[1], "--wallet") == 0) {
@@ -56,7 +57,7 @@ int main(int argc, char *args[]) {
       return 1;
     }
     if ((fds[0].revents & POLLIN)) {
-      peer_message(&fds[0]);
+      peer_message(&fds[0], wallet);
     }
     if ((fds[1].revents & POLLIN)) {
       command *cmd = malloc(sizeof(command));

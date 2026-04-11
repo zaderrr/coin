@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdio.h>
 
 #ifndef COIN_WALLET_H
@@ -12,6 +13,8 @@ typedef struct FileEncryption {
 typedef struct Wallet {
   unsigned char *public_key;
   unsigned char *private_key;
+  uint64_t balance;
+  uint64_t nonce;
 } Wallet;
 int generate_wallet(unsigned char pub[32], unsigned char private[64]);
 int encrypt_keys(unsigned char public_key[32], unsigned char private_key[64],

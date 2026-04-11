@@ -34,11 +34,11 @@ unsigned char *handle_handshake(unsigned char *buff, struct pollfd client_fd,
   unsigned char *public_key = get_public_key(buff);
   unsigned char res[1024];
   // Write response + send
-  write_header(INIT_BALANCE, sizeof(int), res);
-  int balance = get_balance(public_key, current_state);
-  balance = htonl(balance);
+  write_header(INIT_BALANCE, sizeof(uint64_t), res);
+  uint64_t balance = get_balance(public_key, current_state);
+  balance = htonll(balance);
   // Write balance to response
-  memcpy(res + 5, &balance, 4);
+  memcpy(res + 5, &balance, 8);
   send(client_fd.fd, res, 1024, 0);
   free(public_key);
   return 0;
@@ -119,6 +119,7 @@ transaction read_tx_from_buff(unsigned char *payload) {
 
   tx.amount = htonll(amount_n);
   tx.nonce = htonll(nonce_n);
+  printf("Nonce: %lu\n", tx.nonce);
   return tx;
 }
 
