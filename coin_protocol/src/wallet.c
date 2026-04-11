@@ -24,16 +24,11 @@ int create_wallet(Wallet *wallet, char *password) {
     printf("problem generating wallet\n");
     return 1;
   }
-  printf("Wallet created!:)\n");
-  struct FileEncryption *file;
-  file = malloc(sizeof(struct FileEncryption));
-  encrypt_keys(public_key, private_key, password, file);
   wallet->public_key = malloc(32);
   wallet->private_key = malloc(64);
   memcpy(wallet->public_key, public_key, 32);
   memcpy(wallet->private_key, private_key, 64);
-  write_keys_to_file(file);
-  free(file);
+
   return 0;
 }
 
@@ -65,29 +60,6 @@ int encrypt_keys(unsigned char public_key[32], unsigned char private_key[64],
   return 1;
 }
 
-int write_keys_to_file(FileEncryption *cipher) {
-  const char *home = getenv("HOME");
-  if (!home) {
-    fprintf(stderr, "HOME not set\n");
-    return 1;
-  }
-
-  char walletLoc[512];
-  snprintf(walletLoc, sizeof walletLoc, "%s/Documents/keys/wallet.coin", home);
-  FILE *fptr;
-  fptr = fopen(walletLoc, "wb");
-  if (fptr == NULL) {
-    printf("Something went badly wrong...\n");
-    return 0;
-  }
-  fwrite(cipher->salt, 1, crypto_pwhash_SALTBYTES, fptr);
-  fwrite(cipher->nonce, 1, crypto_secretbox_NONCEBYTES, fptr);
-  unsigned long long ciphertext_len = crypto_secretbox_MACBYTES + 32 + 64;
-  fwrite(cipher->CipherText, 1, ciphertext_len, fptr);
-  fclose(fptr);
-
-  return 1;
-}
 int decrypt_wallet(FILE *fptr, Wallet *wallet, char *password) {
 
   // Nonce = 24, Salt = 16, MAC = 16, Message = 32 + 64, + 2 commas + 2 space

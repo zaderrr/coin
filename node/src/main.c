@@ -58,6 +58,8 @@ int main(int argc, char const *argv[]) {
     Wallet *wallet = malloc(sizeof(Wallet));
     get_wallet(wallet);
     ctx.wallet = wallet;
+    printf("Wallet loaded: ");
+    print_public_key(wallet->public_key);
   }
 
   char buff[128];
@@ -70,10 +72,17 @@ int main(int argc, char const *argv[]) {
   while (1) {
     accept_connections(fds, &nfds);
     listen_for_message(fds, &nfds, ctx);
-    if (ctx.is_validator == true &&
-        gen_block.timestamp + block_schedule < time(NULL)) {
-      gen_block = build_next_block(&gen_block, &ctx);
-      printf("New block height: %d\n", gen_block.height);
+    if (ctx.is_validator == true) {
+      if (gen_block.timestamp + block_schedule < time(NULL)) {
+        int index = get_next_validator(ctx.current_state);
+        validator t = ctx.current_state->validators[index];
+        printf("index %d\n", index);
+        print_public_key(t.public_key);
+        if (memcmp(t.public_key, ctx.wallet->public_key, 32) == 0) {
+          gen_block = build_next_block(&gen_block, &ctx);
+          printf("New block height: %d\n", gen_block.height);
+        }
+      }
     }
   }
   return 0;

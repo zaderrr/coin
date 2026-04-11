@@ -142,6 +142,7 @@ int broadcast_tx(node_ctx ctx, transaction tx) {
 int validate_tx(transaction *tx, node_ctx *ctx) {
   account *account = get_account(ctx->current_state, tx->from);
   if (account == NULL) {
+    printf("Account is null :( no balance\n");
     return 1;
   }
   // Check account can withdraw (validator)

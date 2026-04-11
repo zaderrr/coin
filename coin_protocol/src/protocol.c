@@ -24,10 +24,15 @@ int validate_funds(account *account, state *current_state, transaction *tx) {
   return 0;
 }
 
-validator *get_next_validator(state *current_state) {
-  int val_index =
-      current_state->previous_block->height % current_state->validators_count;
-  return &current_state->validators[val_index];
+int get_next_validator(state *current_state) {
+  int height;
+  if (current_state->previous_block == NULL) {
+    height = 0;
+  } else {
+    height = current_state->previous_block->height + 1;
+  }
+  int val_index = height % current_state->validators_count;
+  return val_index;
   ;
 }
 
@@ -51,10 +56,12 @@ validator *get_validator(state *current_state, unsigned char public_key[32]) {
   return NULL;
 }
 
-int can_wirthdraw_stake(account *account, validator *validator, transaction *tx,
+int can_wirthdraw_stake(account *account, validator *val, transaction *tx,
                         state *current_state) {
   // Check if next proposer
-  if (validator == get_next_validator(current_state)) {
+  int index = get_next_validator(current_state);
+  validator *at_index = &current_state->validators[index];
+  if (val == at_index) {
     printf("Can't withdraw, they're the next proposer\n");
     return 1;
   }
@@ -62,7 +69,7 @@ int can_wirthdraw_stake(account *account, validator *validator, transaction *tx,
   // Check they have been a validator for atleast X blocks
   int required_join =
       current_state->previous_block->height - min_validator_length();
-  if (validator->block_joined > required_join) {
+  if (val->block_joined > required_join) {
     printf("Not been validating long enough\n");
     return 1;
   }

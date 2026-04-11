@@ -23,11 +23,18 @@ int get_peers(Peer **peers) {
   return 0;
 }
 
-int main() {
+int main(int argc, char *args[]) {
   if (sodium_init() < 0)
     return 1;
   Wallet *wallet = malloc(sizeof(Wallet));
-  if (init_wallet(wallet) == 1) {
+  char wallet_loc[512];
+  if (argc > 1) {
+    if (strcmp(args[1], "--wallet") == 0) {
+      printf("Loading specified wallet\n");
+      memcpy(wallet_loc, args[2], strlen(args[2]));
+    }
+  }
+  if (init_wallet(wallet, wallet_loc) == 1) {
     printf("Error initializing wallet\n");
     return 1;
   }
