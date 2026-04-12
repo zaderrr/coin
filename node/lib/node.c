@@ -19,7 +19,6 @@
 #include <time.h>
 #include <unistd.h>
 
-#define PORT 8080
 #define MAX_CLIENTS 128
 
 unsigned char *get_public_key(unsigned char *buff) {
@@ -44,7 +43,7 @@ unsigned char *handle_handshake(unsigned char *buff, struct pollfd client_fd,
   return 0;
 }
 
-struct pollfd *start_server() {
+struct pollfd *start_server(uint16_t port) {
   int server_fd, new_socket;
   ssize_t valread;
   struct sockaddr_in address;
@@ -68,7 +67,7 @@ struct pollfd *start_server() {
   }
   address.sin_family = AF_INET;
   address.sin_addr.s_addr = INADDR_ANY;
-  address.sin_port = htons(PORT);
+  address.sin_port = htons(port);
 
   // Forcefully attaching socket to the port 8080
   if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {

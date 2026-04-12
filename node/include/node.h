@@ -24,8 +24,13 @@ typedef struct {
   Wallet *wallet;
 } node_ctx;
 
+typedef struct {
+  bool is_validator;
+  uint16_t port;
+} config;
+
 unsigned char *get_public_key(unsigned char *buff);
-struct pollfd *start_server();
+struct pollfd *start_server(uint16_t port);
 int accept_connections(struct pollfd *fds, int *nfds);
 int read_friends(char *file_location, char *friends);
 int listen_for_message(struct pollfd *fds, int *nfds, node_ctx ctx);

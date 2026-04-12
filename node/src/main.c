@@ -1,5 +1,6 @@
 #include "block.h"
 #include "wallet.h"
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <node.h>
 #include <poll.h>
@@ -8,10 +9,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
 
 #define MAX_TX 256
+#define BLOCK_SCHEDULE 10
 
 void clear_term() { printf("\033[2J\n"); }
 
@@ -60,14 +63,12 @@ int get_wallet(Wallet *wallet) {
     printf("No wallet, create one with the client first\n");
     return 1;
   } else {
-    decrypt_wallet(fptr, wallet, password);
+    return decrypt_wallet(fptr, wallet, password);
   }
   return 0;
 }
 
-int main(int argc, char const *argv[]) {
-  // build chain
-  block gen_block = {0};
+node_ctx build_context() {
   state *current_state = malloc(sizeof(state));
   node_ctx ctx = {0};
   ctx.current_state = current_state;
@@ -75,30 +76,72 @@ int main(int argc, char const *argv[]) {
   ctx.mempool->tx = malloc(sizeof(transaction) * MAX_TX);
   ctx.mempool->tx_count = 0;
   ctx.mempool->capacity = MAX_TX;
-  init_chain(current_state, &gen_block);
+  return ctx;
+}
 
-  if (argc > 1 && strcmp(argv[1], "--validate") == 0) {
-    ctx.is_validator = true;
-    // get validator key
-    Wallet *wallet = malloc(sizeof(Wallet));
-    get_wallet(wallet);
-    ctx.wallet = wallet;
-    printf("Wallet loaded: ");
-    print_public_key(wallet->public_key);
+int init_validator(node_ctx *ctx) {
+  ctx->is_validator = true;
+  // get validator key
+  Wallet *wallet = malloc(sizeof(Wallet));
+  ctx->wallet = wallet;
+  return get_wallet(wallet);
+}
+
+int read_args(int count, char **args, config *out) {
+  config cfg = {0};
+  for (int i = 0; i < count; i++) {
+    if (strcmp(args[i], "--validate") == 0) {
+      cfg.is_validator = true;
+    } else if (strcmp(args[i], "--port") == 0) {
+      char *endptr = NULL;
+      uint64_t arg_port = strtoul(args[i + 1], &endptr, 10);
+      if (*endptr != '\0' || arg_port > UINT16_MAX) {
+        printf("Invalid port\n");
+        return 1;
+      }
+
+      cfg.port = (uint16_t)arg_port;
+    }
+  }
+  *out = cfg;
+  return 0;
+}
+
+int main(int argc, char **argv) {
+  // Get config
+  config cfg = {0};
+
+  if (argc > 1) {
+    if (read_args(argc, argv, &cfg) == 1) {
+      return 1;
+    }
   }
 
-  char buff[128];
-  char *location = "text.txt";
-  // read_friends(location, buff);
-  //   Start node
-  struct pollfd *fds = start_server();
+  // build chain
+  block gen_block = {0};
+  node_ctx ctx = build_context();
+  if (cfg.is_validator) {
+    if (init_validator(&ctx) == 1) {
+      printf("Error initializing validator...");
+      return 1;
+    }
+  }
+  init_chain(ctx.current_state, &gen_block);
+
+  uint16_t port = 8080;
+  if (cfg.port != 0) {
+    port = cfg.port;
+  }
+
+  // Start node
+  struct pollfd *fds = start_server(port);
   int nfds = 1;
-  int block_schedule = 10;
+
   while (1) {
     accept_connections(fds, &nfds);
     listen_for_message(fds, &nfds, ctx);
     if (ctx.is_validator == true) {
-      if (gen_block.timestamp + block_schedule < time(NULL)) {
+      if (gen_block.timestamp + BLOCK_SCHEDULE < time(NULL)) {
         int index = get_next_validator(ctx.current_state);
         validator t = ctx.current_state->validators[index];
         if (memcmp(t.public_key, ctx.wallet->public_key, 32) == 0) {
