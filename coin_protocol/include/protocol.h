@@ -1,8 +1,11 @@
 #include "block.h"
 #include <stdint.h>
+#include <sys/poll.h>
+
 typedef struct {
   uint32_t IP;
   uint16_t PORT;
+  int peer_fd;
 } Peer;
 
 int min_validator_length();

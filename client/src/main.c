@@ -16,7 +16,7 @@
 int get_peers(Peer **peers) {
   Peer *p = malloc(sizeof(Peer) * 2);
   p[0].IP = inet_addr("127.0.0.1");
-  p[0].PORT = 8080;
+  p[0].PORT = 8082;
   p[1].IP = inet_addr("127.0.0.1");
   p[1].PORT = 8090;
   *peers = p;

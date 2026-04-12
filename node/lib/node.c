@@ -43,7 +43,7 @@ unsigned char *handle_handshake(unsigned char *buff, struct pollfd client_fd,
   return 0;
 }
 
-struct pollfd *start_server(uint16_t port) {
+struct pollfd start_server(uint16_t port) {
   int server_fd, new_socket;
   ssize_t valread;
   struct sockaddr_in address;
@@ -69,7 +69,6 @@ struct pollfd *start_server(uint16_t port) {
   address.sin_addr.s_addr = INADDR_ANY;
   address.sin_port = htons(port);
 
-  // Forcefully attaching socket to the port 8080
   if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
     perror("bind failed");
     exit(EXIT_FAILURE);
@@ -80,22 +79,24 @@ struct pollfd *start_server(uint16_t port) {
   }
   fds[0].fd = server_fd;
   fds[0].events = POLLIN;
-  nfds = 1;
-  return fds;
+  return fds[0];
 }
 
-int accept_connections(struct pollfd *fds, int *nfds) {
-  int ready = poll(fds, *nfds, 100);
+int accept_connections(node_ctx *ctx) {
+  struct pollfd *fds = ctx->peer_manager->fds;
+  uint32_t *count = &ctx->peer_manager->peer_count;
+  int ready = poll(fds, *count, 100);
   if (ready < 0) {
     perror("poll");
     return 1;
   }
   if (fds[0].revents & POLLIN) {
     int client_fd = accept(fds[0].fd, NULL, NULL);
-    if (client_fd >= 0 && *nfds < MAX_CLIENTS + 1) {
-      fds[*nfds].fd = client_fd;
-      fds[*nfds].events = POLLIN;
-      *nfds += 1;
+    if (client_fd >= 0 && *count < MAX_CLIENTS + 1) {
+      fds[*count].fd = client_fd;
+      fds[*count].events = POLLIN;
+      ctx->peer_manager->peers[*count] = (Peer){.peer_fd = client_fd};
+      *count += 1;
       printf("new client: fd %d\n", client_fd);
     }
   }
@@ -134,8 +135,36 @@ int mempool_contains(mempool *pool, transaction *tx) {
   return 1;
 }
 
-int broadcast_tx(node_ctx ctx, transaction tx) {
+int build_tx_message(transaction *tx, uint8_t *buff) {
+  int offset = 0;
+  unsigned char type_byte = (unsigned char)tx->type;
+  tx->amount = htonll(tx->amount);
+  tx->nonce = htonll(tx->nonce);
+  memcpy(buff, &type_byte, 1);
+  memcpy(buff + 1, tx->from, 32);
+  memcpy(buff + 33, tx->to, 32);
+  memcpy(buff + 65, &tx->amount, 8);
+  memcpy(buff + 73, &tx->nonce, 8);
+  memcpy(buff + 81, tx->signature, 64);
+  return 0;
+}
+
+int broadcast_tx(node_ctx *ctx, transaction *tx) {
   // This is where we tell our friends about the new transaction
+  // Type, From, To, Amount, Nonce, Signature
+  size_t size = 1 + 32 + 32 + 8 + 8 + 64;
+  uint8_t buff[size];
+  build_tx_message(tx, buff);
+  uint8_t msg[size + 5];
+  write_header(TX_SUBMIT, size, msg);
+  memcpy(msg + 5, buff, size);
+  PeerManager *pm = ctx->peer_manager;
+  for (int i = 0; i < pm->peer_count; i++) {
+    if (i == 0)
+      continue;
+    send(pm->peers[i].peer_fd, msg, size + 5, 0);
+  }
+  return 0;
 }
 
 int validate_tx(transaction *tx, node_ctx *ctx) {
@@ -164,7 +193,7 @@ int validate_tx(transaction *tx, node_ctx *ctx) {
   return 0;
 }
 
-int handle_tx(unsigned char *payload, struct pollfd client_fd, node_ctx *ctx) {
+int handle_tx(unsigned char *payload, node_ctx *ctx) {
   transaction tx = read_tx_from_buff(payload);
   // TODO: Add validation for received data...
   if (verify_transaction(payload, &tx) != 1) {
@@ -186,7 +215,7 @@ int handle_tx(unsigned char *payload, struct pollfd client_fd, node_ctx *ctx) {
   int mempool_count = ctx->mempool->tx_count;
   ctx->mempool->tx[mempool_count] = tx;
   ctx->mempool->tx_count++;
-  // TODO: Broadcast
+  broadcast_tx(ctx, &tx);
   return 0;
 }
 
@@ -197,8 +226,11 @@ int handle_decoded(Message *message, struct pollfd client_fd, node_ctx ctx) {
     break;
   }
   case TX_SUBMIT: {
-    handle_tx(message->payload, client_fd, &ctx);
+    handle_tx(message->payload, &ctx);
     break;
+  }
+  case PING: {
+    printf("Ping received");
   }
   default: {
     break;
@@ -207,21 +239,25 @@ int handle_decoded(Message *message, struct pollfd client_fd, node_ctx ctx) {
   return 0;
 }
 
-int listen_for_message(struct pollfd *fds, int *nfds, node_ctx ctx) {
-  for (int i = 1; i < *nfds; i++) {
-    if (!(fds[i].revents & POLLIN))
+int listen_for_message(node_ctx *ctx) {
+  PeerManager *pm = ctx->peer_manager;
+  uint32_t *count = &pm->peer_count;
+  for (int i = 1; i < *count; i++) {
+    if (!(pm->fds[i].revents & POLLIN))
       continue;
     unsigned char buf[4096];
-    ssize_t n = recv(fds[i].fd, buf, sizeof(buf), 0);
+    ssize_t n = recv(pm->fds[i].fd, buf, sizeof(buf), 0);
     if (n <= 0) {
-      close(fds[i].fd);
-      fds[i] = fds[*nfds - 1];
-      *nfds -= 1;
+      pm->peers[i] = pm->peers[*count - 1];
+      close(pm->fds[i].fd);
+      pm->fds[i] = pm->fds[*count - 1];
+      *count -= 1;
       i--;
+
     } else {
       Message *message;
       decode_message(buf, &message);
-      handle_decoded(message, fds[i], ctx);
+      handle_decoded(message, pm->fds[i], *ctx);
       free(message->payload);
       free(message->header);
       free(message);
@@ -306,7 +342,6 @@ int create_new_account(state *current_state, transaction *tx) {
       realloc(current_state->accounts, sizeof(account) * count);
 
   account new = {0};
-  new.balance = tx->amount;
   new.nonce = 0;
   memcpy(new.public_key, tx->to, 32);
 
@@ -332,6 +367,7 @@ int update_state(state *current_state, transaction *tx) {
       from = get_account(current_state, tx->from);
       to = get_account(current_state, tx->to);
     }
+    to->balance += tx->amount;
     from->balance -= tx->amount;
     from->nonce++;
   }

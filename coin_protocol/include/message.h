@@ -7,6 +7,7 @@
 typedef enum MessageType {
   HANDSHAKE,
   INIT_BALANCE,
+  PING,
   TX_SUBMIT,
   GET_BLOCK,
   BLOCK,

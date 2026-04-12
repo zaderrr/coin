@@ -8,13 +8,43 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/poll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
 
 #define MAX_TX 256
+#define MAX_PEERS 12
 #define BLOCK_SCHEDULE 10
+
+Peer *get_peers() {
+  Peer *peers = malloc(sizeof(Peer) * 3);
+  peers[0] = (Peer){.PORT = 8081, .IP = inet_addr("127.0.0.1")};
+  peers[1] = (Peer){.PORT = 8082, .IP = inet_addr("127.0.0.1")};
+  peers[2] = (Peer){.PORT = 8083, .IP = inet_addr("127.0.0.1")};
+  return peers;
+}
+
+int connect_to_peer(Peer peer) {
+  int status, valread, client_fd;
+  struct sockaddr_in serv_addr;
+  if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    printf("\n Socket creation error \n");
+    return -1;
+  }
+
+  serv_addr.sin_family = AF_INET;
+  serv_addr.sin_port = htons(peer.PORT);
+  serv_addr.sin_addr.s_addr = peer.IP;
+
+  if ((status = connect(client_fd, (struct sockaddr *)&serv_addr,
+                        sizeof(serv_addr))) < 0) {
+    printf("\nConnection Failed \n");
+    return -1;
+  }
+  return client_fd;
+}
 
 void clear_term() { printf("\033[2J\n"); }
 
@@ -68,14 +98,21 @@ int get_wallet(Wallet *wallet) {
   return 0;
 }
 
+PeerManager *pm_init(int capacity) {
+  PeerManager *pm = calloc(1, sizeof(PeerManager));
+  pm->peers = calloc(capacity, sizeof(Peer));
+  pm->fds = calloc(capacity, sizeof(struct pollfd));
+  return pm;
+}
+
 node_ctx build_context() {
   state *current_state = malloc(sizeof(state));
   node_ctx ctx = {0};
   ctx.current_state = current_state;
   ctx.mempool = malloc(sizeof(mempool));
   ctx.mempool->tx = malloc(sizeof(transaction) * MAX_TX);
-  ctx.mempool->tx_count = 0;
   ctx.mempool->capacity = MAX_TX;
+  ctx.peer_manager = pm_init(MAX_PEERS);
   return ctx;
 }
 
@@ -134,12 +171,31 @@ int main(int argc, char **argv) {
   }
 
   // Start node
-  struct pollfd *fds = start_server(port);
-  int nfds = 1;
+  struct pollfd server_fd = start_server(port);
+  ctx.peer_manager->peer_count = 1;
+  ctx.peer_manager->peers[0] = (Peer){.peer_fd = server_fd.fd};
+  ctx.peer_manager->fds[0] = server_fd;
+  Peer *default_peers = get_peers();
+  // Hardcoded 3 peers for now
+  // TODO: Make this gooder
+  for (int i = 0; i < 3; i++) {
+    if (default_peers[i].PORT == cfg.port) {
+      continue;
+    }
+    int peer_fd = connect_to_peer(default_peers[i]);
+    if (peer_fd == -1) {
+      continue;
+    }
+    PeerManager *pm = ctx.peer_manager;
+    pm->peers[pm->peer_count].peer_fd = peer_fd;
+    pm->fds[pm->peer_count] = (struct pollfd){.fd = peer_fd, .events = POLLIN};
+    pm->peer_count++;
+    free(default_peers);
+  }
 
   while (1) {
-    accept_connections(fds, &nfds);
-    listen_for_message(fds, &nfds, ctx);
+    accept_connections(&ctx);
+    listen_for_message(&ctx);
     if (ctx.is_validator == true) {
       if (gen_block.timestamp + BLOCK_SCHEDULE < time(NULL)) {
         int index = get_next_validator(ctx.current_state);
