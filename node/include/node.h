@@ -2,10 +2,7 @@
 #include "protocol.h"
 #include "stdbool.h"
 #include "wallet.h"
-#include <stdint.h>
-#include <stdio.h>
-#include <sys/poll.h>
-#include <sys/types.h>
+
 #ifndef NODE_H
 #define NODE_H
 
@@ -34,10 +31,9 @@ typedef struct {
   uint16_t port;
 } config;
 
-unsigned char *get_public_key(unsigned char *buff);
-struct pollfd start_server(uint16_t port);
-int accept_connections(node_ctx *ctx);
-int read_friends(char *file_location, char *friends);
-int listen_for_message(node_ctx *ctx);
 block build_next_block(block *previous_block, node_ctx *ctx);
+int read_args(int count, char **args, config *out);
+int init_validator(node_ctx *ctx);
+node_ctx init_context();
+void display_state(node_ctx ctx, block current_block);
 #endif

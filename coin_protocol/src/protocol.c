@@ -1,28 +1,11 @@
-
 #include "block.h"
+#include "ed25519.h"
 #include <stdio.h>
 #include <string.h>
+
 #define MIN_VALIDATOR_LENGTH 5
 
 int min_validator_length() { return MIN_VALIDATOR_LENGTH; }
-
-int valid_nonce(account *account, transaction *tx) {
-  if (account->nonce != tx->nonce) {
-    printf("Invalid nonce\n");
-    return 1;
-  }
-  return 0;
-}
-int validate_funds(account *account, state *current_state, transaction *tx) {
-  if (account->balance < tx->amount) {
-    printf("Insufficent balance\n");
-    return 1;
-  }
-  if (valid_nonce(account, tx) == 1) {
-    return 1;
-  }
-  return 0;
-}
 
 int get_next_validator(state *current_state) {
   int height;
@@ -53,28 +36,4 @@ validator *get_validator(state *current_state, unsigned char public_key[32]) {
     }
   }
   return NULL;
-}
-
-int can_wirthdraw_stake(account *account, validator *val, transaction *tx,
-                        state *current_state) {
-  // Check if next proposer
-  int index = get_next_validator(current_state);
-  validator *at_index = &current_state->validators[index];
-  if (val == at_index) {
-    printf("Can't withdraw, they're the next proposer\n");
-    return 1;
-  }
-
-  // Check they have been a validator for atleast X blocks
-  int required_join =
-      current_state->previous_block->height - min_validator_length();
-  if (val->block_joined > required_join) {
-    printf("Not been validating long enough\n");
-    return 1;
-  }
-
-  if (valid_nonce(account, tx) == 1) {
-    return 1;
-  }
-  return 0;
 }
