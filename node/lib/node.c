@@ -119,7 +119,6 @@ transaction read_tx_from_buff(unsigned char *payload) {
 
   tx.amount = htonll(amount_n);
   tx.nonce = htonll(nonce_n);
-  printf("Nonce: %lu\n", tx.nonce);
   return tx;
 }
 
@@ -173,7 +172,6 @@ int handle_tx(unsigned char *payload, struct pollfd client_fd, node_ctx *ctx) {
     printf("Invalid signature.\n");
     return 1;
   }
-
   if (ctx->mempool->tx_count >= ctx->mempool->capacity) {
     printf("Mempool full\n");
     return 1;
@@ -259,8 +257,9 @@ int get_local_blocks() {
 }
 
 unsigned char *build_tx_leaf(transaction *tx) {
-  // From, To, Nonce, signature, type
+  // From, To, Nonce, type
   size_t leaf_size = 32 + 32 + 8 + 1;
+
   unsigned char type_byte = (unsigned char)tx->type;
   unsigned char *leaf = malloc(leaf_size);
   memcpy(leaf, tx->from, 32);
@@ -273,13 +272,10 @@ unsigned char *build_tx_leaf(transaction *tx) {
 
 int build_root(unsigned char *root, mempool *mempool) {
   size_t leaf_size = 32 + 32 + 8 + 1;
-
   unsigned char **leafs = malloc(sizeof(unsigned char *) * mempool->tx_count);
-
   for (int i = 0; i < mempool->tx_count; i++) {
     leafs[i] = build_tx_leaf(&mempool->tx[i]);
   }
-
   compute_merkle_root(leafs, mempool->tx_count, root, leaf_size);
   for (int i = 0; i < mempool->tx_count; i++) {
     free(leafs[i]);
@@ -303,20 +299,40 @@ int build_root_hash(unsigned char *item, unsigned char *out_buf, int count) {
   return 0;
 }
 
+int create_new_account(state *current_state, transaction *tx) {
+  current_state->accounts_count++;
+  int count = current_state->accounts_count;
+  account *new_accounts =
+      realloc(current_state->accounts, sizeof(account) * count);
+
+  account new = {0};
+  new.balance = tx->amount;
+  new.nonce = 0;
+  memcpy(new.public_key, tx->to, 32);
+
+  if (new_accounts == NULL) {
+    printf("Failed to add account\n");
+    return 1;
+  }
+
+  current_state->accounts = new_accounts;
+  current_state->accounts[current_state->accounts_count - 1] = new;
+  return 0;
+}
+
 int update_state(state *current_state, transaction *tx) {
   if (tx->type == TX_TRANSFER) {
     account *from = get_account(current_state, tx->from);
     account *to = get_account(current_state, tx->to);
     if (to == NULL) {
-      account *new = malloc(sizeof(account));
-      new->balance = tx->amount;
-      new->nonce = 0;
-
-      memcpy(new->public_key, tx->to, 32);
-      current_state->accounts[current_state->accounts_count] = *new;
-    } else {
-      to->balance += tx->amount;
+      if (create_new_account(current_state, tx) == 1) {
+        return 1;
+      }
+      // Creating account, reallocates memory - Have to get pointers again
+      from = get_account(current_state, tx->from);
+      to = get_account(current_state, tx->to);
     }
+    to->balance += tx->amount;
     from->balance -= tx->amount;
     from->nonce++;
   }
@@ -326,7 +342,6 @@ int update_state(state *current_state, transaction *tx) {
 block build_next_block(block *previous_block, node_ctx *ctx) {
   unsigned char prev_hash[32];
   hash_block(previous_block, prev_hash);
-
   block next_block = {0};
   next_block.height = previous_block->height + 1;
   next_block.tx_count = ctx->mempool->tx_count;
@@ -337,7 +352,6 @@ block build_next_block(block *previous_block, node_ctx *ctx) {
   memcpy(next_block.prev_hash, prev_hash, 32);
 
   transaction *block_tx = malloc(sizeof(transaction) * ctx->mempool->tx_count);
-
   int tx_count = 0;
   for (int i = 0; i < ctx->mempool->tx_count; i++) {
     transaction tx = ctx->mempool->tx[i];
@@ -354,16 +368,13 @@ block build_next_block(block *previous_block, node_ctx *ctx) {
 
   unsigned char account_merkle[32];
   unsigned char val_merkle[32];
-
   build_root_hash((unsigned char *)ctx->current_state->accounts, account_merkle,
                   ctx->current_state->accounts_count);
   build_root_hash((unsigned char *)ctx->current_state->validators, val_merkle,
                   ctx->current_state->validators_count);
   memcpy(next_block.state_root, account_merkle, 32);
   memcpy(next_block.validator_root, val_merkle, 32);
-
   ctx->mempool->tx_count = 0;
   free(previous_block->transactions);
-
   return next_block;
 }

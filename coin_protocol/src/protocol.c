@@ -33,7 +33,6 @@ int get_next_validator(state *current_state) {
   }
   int val_index = height % current_state->validators_count;
   return val_index;
-  ;
 }
 
 account *get_account(state *current_state, unsigned char public_key[32]) {

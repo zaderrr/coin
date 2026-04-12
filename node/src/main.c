@@ -78,7 +78,7 @@ int main(int argc, char const *argv[]) {
         validator t = ctx.current_state->validators[index];
         if (memcmp(t.public_key, ctx.wallet->public_key, 32) == 0) {
           gen_block = build_next_block(&gen_block, &ctx);
-          printf("New block height: %d\n", gen_block.height);
+          printf("New block: Height %d\n", gen_block.height);
         }
       }
     }
