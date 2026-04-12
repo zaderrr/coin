@@ -31,7 +31,7 @@ typedef struct {
 } account;
 
 typedef struct {
-  uint32_t height;
+  uint64_t height;
   uint8_t prev_hash[32];
   uint8_t state_root[32];
   uint8_t validator_root[32];

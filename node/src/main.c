@@ -12,6 +12,31 @@
 #include <unistd.h>
 
 #define MAX_TX 256
+
+void clear_term() { printf("\033[2J\n"); }
+
+void format_pub(unsigned char public_key[32]) {
+  unsigned char trunc[7];
+  trunc[6] = '\0';
+  memcpy(trunc, public_key, 6);
+  printf("Account: 0x");
+  for (int i = 0; i < 6; i++) {
+    printf("%02x", trunc[i]);
+  }
+  printf("...");
+}
+
+void display_state(node_ctx ctx, block current_block) {
+  clear_term();
+  printf("Accounts: %u\n", ctx.current_state->accounts_count);
+  for (int i = 0; i < ctx.current_state->accounts_count; i++) {
+    format_pub(ctx.current_state->accounts[i].public_key);
+    printf(" Balance: %lu", ctx.current_state->accounts[i].balance);
+    printf(" Nonce: %lu\n", ctx.current_state->accounts[i].nonce);
+  }
+  printf("Current block: %lu\n", current_block.height);
+}
+
 int get_password(char *password) {
   printf("Enter password: ");
   fgets(password, sizeof password, stdin);
@@ -78,7 +103,7 @@ int main(int argc, char const *argv[]) {
         validator t = ctx.current_state->validators[index];
         if (memcmp(t.public_key, ctx.wallet->public_key, 32) == 0) {
           gen_block = build_next_block(&gen_block, &ctx);
-          printf("New block: Height %d\n", gen_block.height);
+          display_state(ctx, gen_block);
         }
       }
     }
