@@ -299,6 +299,7 @@ int build_root_hash(unsigned char *item, unsigned char *out_buf, int count) {
   return 0;
 }
 
+// Creates new account with the new balance
 int create_new_account(state *current_state, transaction *tx) {
   current_state->accounts_count++;
   int count = current_state->accounts_count;
@@ -332,7 +333,6 @@ int update_state(state *current_state, transaction *tx) {
       from = get_account(current_state, tx->from);
       to = get_account(current_state, tx->to);
     }
-    to->balance += tx->amount;
     from->balance -= tx->amount;
     from->nonce++;
   }
