@@ -1,7 +1,9 @@
 #include "block.h"
 #include "ed25519.h"
+#include "message.h"
 #include <stdio.h>
 #include <string.h>
+#include <sys/socket.h>
 
 #define MIN_VALIDATOR_LENGTH 5
 
@@ -36,4 +38,9 @@ validator *get_validator(state *current_state, unsigned char public_key[32]) {
     }
   }
   return NULL;
+}
+
+int send_message(size_t size, unsigned char *payload, int fd) {
+  send(fd, payload, size, 0);
+  return 0;
 }

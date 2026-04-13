@@ -8,49 +8,6 @@
 
 #define MAX_TX 256
 
-unsigned char *build_tx_leaf(transaction *tx) {
-  // From, To, Nonce, type
-  size_t leaf_size = 32 + 32 + 8 + 1;
-
-  unsigned char type_byte = (unsigned char)tx->type;
-  unsigned char *leaf = malloc(leaf_size);
-  memcpy(leaf, tx->from, 32);
-  memcpy(leaf + 32, tx->to, 32);
-  memcpy(leaf + 64, &tx->nonce, 8);
-  memcpy(leaf + 72, &type_byte, 1);
-
-  return leaf;
-}
-
-int build_root(unsigned char *root, mempool *mempool) {
-  size_t leaf_size = 32 + 32 + 8 + 1;
-  unsigned char **leafs = malloc(sizeof(unsigned char *) * mempool->tx_count);
-  for (int i = 0; i < mempool->tx_count; i++) {
-    leafs[i] = build_tx_leaf(&mempool->tx[i]);
-  }
-  compute_merkle_root(leafs, mempool->tx_count, root, leaf_size);
-  for (int i = 0; i < mempool->tx_count; i++) {
-    free(leafs[i]);
-  }
-  free(leafs);
-  return 0;
-}
-
-int build_root_hash(unsigned char *item, unsigned char *out_buf, int count) {
-  unsigned char **leaves = malloc(sizeof(char *) * count);
-
-  for (int i = 0; i < count; i++) {
-    leaves[i] = state_to_leaf(&item[i]);
-  }
-
-  size_t leaf_size = 32 + 8 + 8;
-  compute_merkle_root(leaves, count, out_buf, leaf_size);
-
-  free_leaves(leaves, count);
-
-  return 0;
-}
-
 // Creates new account with the new balance
 int create_new_account(state *current_state, transaction *tx) {
   current_state->accounts_count++;
@@ -115,7 +72,7 @@ block build_next_block(block *previous_block, node_ctx *ctx) {
   }
   next_block.transactions = block_tx;
   unsigned char root[32];
-  build_root(root, ctx->mempool);
+  build_root(root, ctx->mempool->tx, ctx->mempool->tx_count);
   memcpy(next_block.tx_root, root, 32);
 
   unsigned char account_merkle[32];

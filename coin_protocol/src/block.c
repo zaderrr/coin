@@ -55,6 +55,47 @@ void free_leaves(unsigned char **leaves, size_t count) {
   }
   free(leaves);
 }
+unsigned char *build_tx_leaf(transaction *tx) {
+  // From, To, Nonce, type
+  size_t leaf_size = 32 + 32 + 8 + 1;
+
+  unsigned char type_byte = (unsigned char)tx->type;
+  unsigned char *leaf = malloc(leaf_size);
+  memcpy(leaf, tx->from, 32);
+  memcpy(leaf + 32, tx->to, 32);
+  memcpy(leaf + 64, &tx->nonce, 8);
+  memcpy(leaf + 72, &type_byte, 1);
+
+  return leaf;
+}
+int build_root(unsigned char *root, transaction *tx, int tx_count) {
+  size_t leaf_size = 32 + 32 + 8 + 1;
+  unsigned char **leafs = malloc(sizeof(unsigned char *) * tx_count);
+  for (int i = 0; i < tx_count; i++) {
+    leafs[i] = build_tx_leaf(&tx[i]);
+  }
+  compute_merkle_root(leafs, tx_count, root, leaf_size);
+  for (int i = 0; i < tx_count; i++) {
+    free(leafs[i]);
+  }
+  free(leafs);
+  return 0;
+}
+
+int build_root_hash(unsigned char *item, unsigned char *out_buf, int count) {
+  unsigned char **leaves = malloc(sizeof(char *) * count);
+
+  for (int i = 0; i < count; i++) {
+    leaves[i] = state_to_leaf(&item[i]);
+  }
+
+  size_t leaf_size = 32 + 8 + 8;
+  compute_merkle_root(leaves, count, out_buf, leaf_size);
+
+  free_leaves(leaves, count);
+
+  return 0;
+}
 
 block build_genesis(account *accounts, validator *validators) {
   block genesis = {

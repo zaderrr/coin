@@ -56,18 +56,19 @@ int connect_to_node(Peer peer, unsigned char *public_key) {
   return client_fd;
 }
 
-uint64_t *read_balance(unsigned char *balance) {
-  uint64_t *bal = malloc(8);
-  memcpy(bal, balance, 8);
-  *bal = htonll(*bal);
+uint64_t read_balance(unsigned char *balance) {
+  uint64_t bal = 0;
+  memcpy(&bal, balance, 8);
+  bal = htonll(bal);
+  printf("Bal222: %lu", bal);
   return bal;
 }
 
 int handle_init_balance(unsigned char *balance, struct pollfd client_fd,
                         Wallet *wallet) {
-  uint64_t *bal = read_balance(balance);
-  wallet->balance = *bal;
-  printf("Balance: %lu\n", *bal);
+  uint64_t bal = read_uint_64(balance);
+  wallet->balance = bal;
+  printf("Balance: %lu\n", bal);
   return 0;
 }
 
@@ -253,10 +254,8 @@ int send_transaction(char **args, int fd, Wallet *wallet) {
 
   int32_t payload_len = sizeof(transaction);
   unsigned char buff[256];
-  write_header(TX_SUBMIT, payload_len, buff);
-  // + 5 header offset
-  memcpy(buff + 5, tx_buff, sizeof(transaction));
-  send(fd, buff, sizeof(buff), 0);
+  create_message(TX_SUBMIT, payload_len, tx_buff, buff);
+  send_message(payload_len, buff, fd);
   free(args[0]);
   free(args[1]);
   wallet->nonce++;

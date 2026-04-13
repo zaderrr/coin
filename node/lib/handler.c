@@ -15,21 +15,15 @@ unsigned char *get_public_key(unsigned char *buff) {
 
 // Read transaction from payload
 transaction read_tx_from_buff(unsigned char *payload) {
-
-  uint64_t amount_n = 0;
-  uint64_t nonce_n = 0;
-
   // Acknowledged that this is very fragile
   transaction tx = {0};
   memcpy(&tx.type, payload, 1);
-  memcpy(tx.from, payload + 1, 32);
-  memcpy(tx.to, payload + 33, 32);
-  memcpy(&amount_n, payload + 65, 8);
-  memcpy(&nonce_n, payload + 73, 8);
-  memcpy(tx.signature, payload + 81, 64);
+  read_public_key(payload + 1, tx.from);
+  read_public_key(payload + 33, tx.to);
+  tx.amount = read_uint_64(payload + 65);
+  tx.nonce = read_uint_64(payload + 73);
+  read_signature(payload + 81, tx.signature);
 
-  tx.amount = htonll(amount_n);
-  tx.nonce = htonll(nonce_n);
   return tx;
 }
 
@@ -45,14 +39,17 @@ int mempool_contains(mempool *pool, transaction *tx) {
 int handle_handshake(unsigned char *buff, struct pollfd client_fd,
                      state *current_state) {
   unsigned char *public_key = get_public_key(buff);
-  unsigned char res[1024];
+  unsigned char res[8];
   // Write response + send
-  write_header(INIT_BALANCE, sizeof(uint64_t), res);
   uint64_t balance = get_balance(public_key, current_state);
+
   balance = htonll(balance);
+
   // Write balance to response
-  memcpy(res + 5, &balance, 8);
-  send(client_fd.fd, res, 1024, 0);
+  memcpy(res, &balance, 8);
+  unsigned char payload[1024];
+  create_message(INIT_BALANCE, sizeof(uint64_t), res, payload);
+  send_message(1024, payload, client_fd.fd);
   free(public_key);
   return 0;
 }

@@ -65,5 +65,6 @@ void print_public_key(unsigned char *public_key);
 int hash_block(block *block, unsigned char buff[32]);
 uint64_t htonll(uint64_t val);
 void free_leaves(unsigned char **leaves, size_t count);
-
+int build_root(unsigned char *root, transaction *tx, int tx_count);
+int build_root_hash(unsigned char *item, unsigned char *out_buf, int count);
 #endif

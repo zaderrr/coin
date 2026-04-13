@@ -1,6 +1,7 @@
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 #include "block.h"
+#include "message.h"
 #include <stdint.h>
 #include <sys/poll.h>
 
@@ -17,4 +18,5 @@ int can_wirthdraw_stake(account *account, validator *validator, transaction *tx,
 account *get_account(state *current_state, unsigned char public_key[32]);
 validator *get_validator(state *current_state, unsigned char public_key[32]);
 int get_next_validator(state *current_state);
+int send_message(size_t length, unsigned char *payload, int fd);
 #endif
