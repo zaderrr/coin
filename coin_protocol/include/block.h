@@ -13,9 +13,10 @@ typedef struct {
   unsigned char from[32];
   unsigned char to[32];
   unsigned char signature[64];
-  tx_type type;
   uint64_t amount;
   uint64_t nonce;
+
+  tx_type type;
 } transaction;
 
 typedef struct {

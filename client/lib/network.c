@@ -1,3 +1,4 @@
+#include "message.h"
 #include "protocol.h"
 #include "wallet.h"
 #include <netinet/in.h>
@@ -26,11 +27,10 @@ int connect_to_node(Peer peer, unsigned char *public_key) {
     printf("\nConnection Failed \n");
     return -1;
   }
-  unsigned char buffer[1024];
+  unsigned char buffer[PUB_KEY_LEN + 5];
   // Write public key to buffer and send
-  write_header(HANDSHAKE, PUB_KEY_LEN, buffer);
-  memcpy(buffer + 5, public_key, PUB_KEY_LEN);
-  send(client_fd, buffer, 1024, 0);
+  create_message(HANDSHAKE, 32, public_key, buffer);
+  send_message(sizeof(buffer), buffer, client_fd);
   return client_fd;
 }
 int handle_init_balance(unsigned char *balance, struct pollfd client_fd,
@@ -59,7 +59,7 @@ int peer_message(struct pollfd *srv, Wallet *wallet) {
     close(srv->fd);
   } else {
     buf[n] = '\0';
-    Message *message;
+    Message *message = malloc(sizeof(Message));
     decode_message(buf, &message);
     handle_decoded(message, *srv, wallet);
     free(message->payload);

@@ -33,9 +33,10 @@ int write_header(MessageType type, uint32_t length, unsigned char *buff);
 int decode_message(unsigned char *buff, Message **message);
 uint64_t read_uint_64(unsigned char *buff);
 int read_signature(unsigned char *buff, unsigned char *dest);
+int read_header(unsigned char *buff, Message *message);
 int *read_public_key(unsigned char *buff, unsigned char *dest);
 int handle_message(unsigned char *buff, struct pollfd client_fd);
 int create_message(MessageType type, uint32_t length, unsigned char *payload,
                    unsigned char *out);
-
+int send_message(int length, unsigned char *payload, int fd);
 #endif

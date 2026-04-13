@@ -40,17 +40,17 @@ int mempool_contains(mempool *pool, transaction *tx) {
 int handle_handshake(unsigned char *buff, struct pollfd client_fd,
                      state *current_state) {
   unsigned char *public_key = get_public_key(buff);
-  unsigned char res[8];
+  unsigned char payload[8];
   // Write response + send
   uint64_t balance = get_balance(public_key, current_state);
 
   balance = htonll(balance);
 
   // Write balance to response
-  memcpy(res, &balance, 8);
-  unsigned char payload[1024];
-  create_message(INIT_BALANCE, sizeof(uint64_t), res, payload);
-  send_message(1024, payload, client_fd.fd);
+  memcpy(payload, &balance, 8);
+  unsigned char res[8 + 5];
+  create_message(INIT_BALANCE, sizeof(uint64_t), payload, res);
+  send_message(sizeof(res), res, client_fd.fd);
   free(public_key);
   return 0;
 }

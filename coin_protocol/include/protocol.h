@@ -7,8 +7,10 @@
 
 typedef struct {
   uint32_t IP;
-  uint16_t PORT;
+  uint32_t buff_len;
+  unsigned char buff[2048];
   int peer_fd;
+  uint16_t PORT;
 } Peer;
 int verify_transaction(unsigned char *payload, transaction *tx);
 int min_validator_length();
@@ -18,5 +20,4 @@ int can_wirthdraw_stake(account *account, validator *validator, transaction *tx,
 account *get_account(state *current_state, unsigned char public_key[32]);
 validator *get_validator(state *current_state, unsigned char public_key[32]);
 int get_next_validator(state *current_state);
-int send_message(size_t length, unsigned char *payload, int fd);
 #endif

@@ -62,7 +62,9 @@ int connect_to_peers(node_ctx *ctx, struct pollfd server_fd, uint16_t port) {
       continue;
     }
     PeerManager *pm = ctx->peer_manager;
-    pm->peers[pm->peer_count].peer_fd = peer_fd;
+    Peer p = {0};
+    p.peer_fd = peer_fd;
+    pm->peers[pm->peer_count] = p;
     pm->fds[pm->peer_count] = (struct pollfd){.fd = peer_fd, .events = POLLIN};
     pm->peer_count++;
     free(default_peers);
@@ -117,7 +119,7 @@ int init_network(node_ctx *ctx, uint16_t port) {
 int accept_connections(node_ctx *ctx) {
   struct pollfd *fds = ctx->peer_manager->fds;
   uint32_t *count = &ctx->peer_manager->peer_count;
-  int ready = poll(fds, *count, 100);
+  int ready = poll(fds, *count, 5);
   if (ready < 0) {
     perror("poll");
     return 1;
@@ -127,6 +129,8 @@ int accept_connections(node_ctx *ctx) {
     if (client_fd >= 0 && *count < MAX_CLIENTS + 1) {
       fds[*count].fd = client_fd;
       fds[*count].events = POLLIN;
+      Peer p = {0};
+      p.peer_fd = client_fd;
       ctx->peer_manager->peers[*count] = (Peer){.peer_fd = client_fd};
       *count += 1;
       printf("new client: fd %d\n", client_fd);
@@ -187,29 +191,72 @@ int handle_decoded(Message *message, struct pollfd client_fd, node_ctx ctx) {
   return 0;
 }
 
+int remove_peer(PeerManager *pm, uint32_t *count, int *index) {
+  pm->peers[*index] = pm->peers[*count - 1];
+  close(pm->fds[*index].fd);
+  pm->fds[*index] = pm->fds[*count - 1];
+  *count -= 1;
+  *index -= 1;
+  return 0;
+}
+
+int read_buffer(Peer *peer, int fd) {
+  size_t space = 2048 - peer->buff_len;
+  if (space == 0)
+    return 0;
+  ssize_t n = recv(fd, peer->buff + peer->buff_len, space, 0);
+  if (n <= 0)
+    return n;
+  peer->buff_len += n;
+  return n;
+}
+
+uint32_t read_payload_len(unsigned char *buff) {
+  int payload_len = 0;
+  memcpy(&payload_len, buff + 1, 4);
+  return htonl(payload_len);
+}
+
+int process_messages(Peer *peer, struct pollfd fd, node_ctx ctx) {
+  while (peer->buff_len >= 5) {
+    uint32_t payload_len = read_payload_len(peer->buff);
+    size_t msg_size = payload_len + 5;
+
+    if (peer->buff_len < msg_size)
+      break;
+
+    Message *message = malloc(sizeof(Message));
+    read_header(peer->buff, message);
+    decode_message(peer->buff, &message);
+    handle_decoded(message, fd, ctx);
+    free(message->payload);
+    free(message->header);
+    free(message);
+
+    // Move remaing bytes to start of buffer
+    peer->buff_len -= msg_size;
+    memmove(peer->buff, peer->buff + msg_size, peer->buff_len);
+  }
+  return 0;
+}
+
 int listen_for_message(node_ctx *ctx) {
   PeerManager *pm = ctx->peer_manager;
   uint32_t *count = &pm->peer_count;
+
   for (int i = 1; i < *count; i++) {
     if (!(pm->fds[i].revents & POLLIN))
       continue;
-    unsigned char buf[4096];
-    ssize_t n = recv(pm->fds[i].fd, buf, sizeof(buf), 0);
-    if (n <= 0) {
-      pm->peers[i] = pm->peers[*count - 1];
-      close(pm->fds[i].fd);
-      pm->fds[i] = pm->fds[*count - 1];
-      *count -= 1;
-      i--;
 
-    } else {
-      Message *message;
-      decode_message(buf, &message);
-      handle_decoded(message, pm->fds[i], *ctx);
-      free(message->payload);
-      free(message->header);
-      free(message);
+    Peer *peer = &pm->peers[i];
+    int n = read_buffer(peer, pm->fds[i].fd);
+
+    if (n <= 0 && peer->buff_len == 0) {
+      remove_peer(pm, count, &i);
+      continue;
     }
+
+    process_messages(peer, pm->fds[i], *ctx);
   }
   return 0;
 }

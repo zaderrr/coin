@@ -1,7 +1,6 @@
 #include "block.h"
 #include "ed25519.h"
 #include "message.h"
-#include "protocol.h"
 #include "util.h"
 #include "wallet.h"
 #include <stdint.h>
@@ -54,10 +53,10 @@ int send_transaction(char **args, int fd, Wallet *wallet) {
   write_tx_to_buff(tx_buff, &tx);
   sign_transaction(&tx, wallet, tx_buff);
 
-  int32_t payload_len = sizeof(transaction);
-  unsigned char buff[256];
+  int32_t payload_len = 1 + 32 + 32 + 8 + 8 + 64;
+  unsigned char buff[payload_len + 5];
   create_message(TX_SUBMIT, payload_len, tx_buff, buff);
-  send_message(payload_len, buff, fd);
+  send_message(sizeof(buff), buff, fd);
   free(args[0]);
   free(args[1]);
   wallet->nonce++;

@@ -46,7 +46,6 @@ int read_header(unsigned char *buff, Message *message) {
 }
 
 int decode_message(unsigned char *buff, Message **message) {
-  *message = malloc(sizeof(struct Message));
   read_header(buff, *message);
   buff += 5;
   (*message)->payload = malloc((*message)->header->payload_len);
@@ -68,5 +67,10 @@ int create_message(MessageType type, uint32_t length, unsigned char *payload,
                    unsigned char *out) {
   write_header(type, length, out);
   memcpy(out + 5, payload, length);
+  return 0;
+}
+
+int send_message(int length, unsigned char *payload, int fd) {
+  send(fd, payload, length, 0);
   return 0;
 }
