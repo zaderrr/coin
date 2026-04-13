@@ -2,6 +2,7 @@
 #include "ed25519.h"
 #include "message.h"
 #include "protocol.h"
+#include "util.h"
 #include "wallet.h"
 #include <stdint.h>
 #include <stdlib.h>

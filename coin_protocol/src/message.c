@@ -1,5 +1,6 @@
 #include "message.h"
 #include "block.h"
+#include "util.h"
 #include <arpa/inet.h>
 #include <endian.h>
 #include <netinet/in.h>

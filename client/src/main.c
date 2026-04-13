@@ -1,15 +1,9 @@
-#include "block.h"
 #include "client.h"
 #include "command.h"
 #include "network.h"
+#include "sodium.h"
+#include "util.h"
 #include <arpa/inet.h>
-#include <dirent.h>
-#include <limits.h>
-#include <message.h>
-#include <netinet/in.h>
-#include <sodium.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/poll.h>
 #include <sys/socket.h>

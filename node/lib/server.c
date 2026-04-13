@@ -2,6 +2,7 @@
 #include "message.h"
 #include "node.h"
 #include "protocol.h"
+#include "util.h"
 #include <arpa/inet.h>
 #include <stdlib.h>
 #include <string.h>

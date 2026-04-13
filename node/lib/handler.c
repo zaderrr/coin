@@ -1,6 +1,7 @@
 #include "message.h"
 #include "node.h"
 #include "server.h"
+#include "util.h"
 #include "validation.h"
 #include <stdlib.h>
 #include <string.h>

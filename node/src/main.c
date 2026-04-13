@@ -1,4 +1,5 @@
 #include "block.h"
+#include "genesis.h"
 #include "server.h"
 #include "wallet.h"
 #include <node.h>

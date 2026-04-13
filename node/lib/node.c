@@ -1,5 +1,6 @@
 #include "node.h"
 #include "block.h"
+#include "merkle.h"
 #include "server.h"
 #include "time.h"
 #include "validation.h"

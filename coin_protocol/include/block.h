@@ -54,17 +54,6 @@ typedef struct {
 _Static_assert(sizeof(account) == sizeof(validator), "struct size mismatch");
 _Static_assert(sizeof(account) == 48, "unexpected struct size");
 
-int compute_merkle_root(uint8_t **leaves, uint32_t count, uint8_t *root,
-                        size_t leaf_size);
-uint8_t *state_to_leaf(unsigned char *state);
-block build_genesis(account *accounts, validator *validators);
-int build_gen_state(state *current_state);
-int init_chain(state *current_state, block *gen_block);
 uint64_t get_balance(unsigned char *public_key, state *current_state);
-void print_public_key(unsigned char *public_key);
 int hash_block(block *block, unsigned char buff[32]);
-uint64_t htonll(uint64_t val);
-void free_leaves(unsigned char **leaves, size_t count);
-int build_root(unsigned char *root, transaction *tx, int tx_count);
-int build_root_hash(unsigned char *item, unsigned char *out_buf, int count);
 #endif
