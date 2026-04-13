@@ -1,5 +1,7 @@
 #include "block.h"
 #include "client.h"
+#include "command.h"
+#include "network.h"
 #include <arpa/inet.h>
 #include <dirent.h>
 #include <limits.h>
