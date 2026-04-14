@@ -65,7 +65,11 @@ block build_next_block(block *previous_block, node_ctx *ctx) {
   int tx_count = 0;
   for (int i = 0; i < ctx->mempool->tx_count; i++) {
     transaction tx = ctx->mempool->tx[i];
-    if (validate_tx(&tx, ctx) == 0) {
+    account *account = get_account(ctx->current_state, tx.from);
+    if (validate_tx(&tx, ctx, account) == 0) {
+      if (valid_nonce(account, &tx) == 1) {
+        continue;
+      }
       block_tx[tx_count] = tx;
       tx_count++;
       update_state(ctx->current_state, &tx);

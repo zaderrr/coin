@@ -71,7 +71,8 @@ int handle_tx(unsigned char *payload, node_ctx *ctx) {
     printf("We already have this tx...\n");
     return 1;
   }
-  if (validate_tx(&tx, ctx) == 1) {
+  account *from = get_account(ctx->current_state, tx.from);
+  if (validate_tx(&tx, ctx, from) == 1) {
     return 1;
   }
   int mempool_count = ctx->mempool->tx_count;

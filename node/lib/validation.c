@@ -9,10 +9,8 @@ int valid_nonce(account *account, transaction *tx) {
   return 0;
 }
 
-int validate_tx(transaction *tx, node_ctx *ctx) {
-  account *account = get_account(ctx->current_state, tx->from);
-  if (account == NULL) {
-    printf("Account is null :( no balance\n");
+int validate_tx(transaction *tx, node_ctx *ctx, account *from) {
+  if (from == NULL) {
     return 1;
   }
   // Check account can withdraw (validator)
@@ -22,13 +20,13 @@ int validate_tx(transaction *tx, node_ctx *ctx) {
       return 1;
     }
 
-    if (can_wirthdraw_stake(account, validator, tx, ctx->current_state) == 1) {
+    if (can_wirthdraw_stake(from, validator, tx, ctx->current_state) == 1) {
       return 1;
     }
 
   } else if (tx->type == TX_TRANSFER) {
     // Validate transfer, balance + nonce
-    if (validate_funds(account, ctx->current_state, tx) == 1) {
+    if (validate_funds(from, ctx->current_state, tx) == 1) {
       return 1;
     }
   }
@@ -43,9 +41,7 @@ int validate_funds(account *account, state *current_state, transaction *tx) {
     printf("Insufficent balance\n");
     return 1;
   }
-  if (valid_nonce(account, tx) == 1) {
-    return 1;
-  }
+
   return 0;
 }
 
