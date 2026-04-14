@@ -49,6 +49,21 @@ int update_state(state *current_state, transaction *tx) {
   return 0;
 }
 
+int compare_tx(const void *a, const void *b) {
+  transaction *ta = (transaction *)a;
+  transaction *tb = (transaction *)b;
+
+  int cmp = memcmp(ta->from, tb->from, 32);
+  if (cmp != 0)
+    return cmp;
+
+  if (ta->nonce < tb->nonce)
+    return -1;
+  if (ta->nonce > tb->nonce)
+    return 1;
+  return 0;
+}
+
 block build_next_block(block *previous_block, node_ctx *ctx) {
   unsigned char prev_hash[32];
   hash_block(previous_block, prev_hash);
@@ -63,6 +78,12 @@ block build_next_block(block *previous_block, node_ctx *ctx) {
 
   transaction *block_tx = malloc(sizeof(transaction) * ctx->mempool->tx_count);
   int tx_count = 0;
+
+  // Sorts by account by nonce, so that we sort multiple transactions from the
+  // same account
+  qsort(ctx->mempool->tx, ctx->mempool->tx_count, sizeof(transaction),
+        compare_tx);
+
   for (int i = 0; i < ctx->mempool->tx_count; i++) {
     transaction tx = ctx->mempool->tx[i];
     account *account = get_account(ctx->current_state, tx.from);
