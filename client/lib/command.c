@@ -67,5 +67,6 @@ int listen_for_command(struct pollfd *infd, command *cmd) {
 void execute_command(command *cmd, int fd, Wallet *wallet) {
   if (cmd->type == SEND) {
     send_transaction(cmd->args, fd, wallet);
+  } else if (cmd->type == STAKE) {
   }
 }

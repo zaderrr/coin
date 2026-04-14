@@ -5,6 +5,7 @@
 enum command_type {
   BALNCE,
   SEND,
+  STAKE,
   PEERS,
 };
 
