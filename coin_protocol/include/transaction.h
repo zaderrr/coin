@@ -24,5 +24,6 @@ typedef struct {
 _Static_assert(sizeof(transaction) - 7 == TX_SIZE, "struct size mismatch");
 
 int send_transaction(char **args, int fd, Wallet *wallet);
+transaction deserialize_tx(unsigned char *payload);
 int serialize_tx(unsigned char *buff, transaction *tx, bool include_signature);
 #endif

@@ -172,7 +172,7 @@ int handle_decoded(Message *message, struct pollfd client_fd, node_ctx ctx) {
     break;
   }
   case BLOCK_PROPOSAL: {
-    printf("Block received\n");
+    handle_block_proposal(message->payload, &ctx, message->header->payload_len);
   }
   default: {
     break;

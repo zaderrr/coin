@@ -1,12 +1,14 @@
 #include "node.h"
 #include "block.h"
+#include "ed25519.h"
 #include "merkle.h"
-
 #include "message.h"
 #include "server.h"
 #include "time.h"
 #include "transaction.h"
+#include "util.h"
 #include "validation.h"
+#include <netinet/in.h>
 #include <sodium.h>
 #include <string.h>
 
@@ -67,38 +69,47 @@ int compare_tx(const void *a, const void *b) {
   return 0;
 }
 
-int *serialize_block(block *next_block, unsigned char *buff, int size) {
-
-  unsigned char block_buff[size];
-
+int serialize_block(block *next_block, unsigned char *buff, int size) {
   int offset = 0;
 
-  memcpy(block_buff + offset, &next_block->height, 8);
+  uint64_t timestamp = htonll(next_block->timestamp);
+  uint64_t height = htonll(next_block->height);
+  uint32_t tx_count = htonl(next_block->tx_count);
+  memcpy(buff + offset, &height, 8);
   offset += 8;
-  memcpy(block_buff + offset, &next_block->prev_hash, 32);
+  memcpy(buff + offset, &next_block->prev_hash, 32);
   offset += 32;
-  memcpy(block_buff + offset, &next_block->state_root, 32);
+  memcpy(buff + offset, &next_block->state_root, 32);
   offset += 32;
-  memcpy(block_buff + offset, &next_block->validator_root, 32);
+  memcpy(buff + offset, &next_block->validator_root, 32);
   offset += 32;
-  memcpy(block_buff + offset, &next_block->tx_root, 32);
+  memcpy(buff + offset, &next_block->tx_root, 32);
   offset += 32;
-  memcpy(block_buff + offset, &next_block->timestamp, 8);
+  memcpy(buff + offset, &timestamp, 8);
   offset += 8;
-  memcpy(block_buff + offset, &next_block->proposer, 32);
+  memcpy(buff + offset, &next_block->proposer, 32);
   offset += 32;
-  memcpy(block_buff + offset, &next_block->tx_count, 4);
+  memcpy(buff + offset, &tx_count, 4);
   offset += 4;
   for (int i = 0; i < next_block->tx_count; i++) {
     unsigned char tx[TX_SIZE];
     serialize_tx(tx, &next_block->transactions[i], true);
-    memcpy(block_buff + offset, tx, TX_SIZE);
+    memcpy(buff + offset, tx, TX_SIZE);
+    offset += TX_SIZE;
   }
   return 0;
 }
 
+int sign_block(block *next_block, unsigned char *block_buff, int size,
+               Wallet *wallet) {
+  ed25519_sign(next_block->signature, block_buff, size, wallet->public_key,
+               wallet->private_key);
+  memcpy(block_buff + (size - 64), next_block->signature, 64);
+  return 0;
+}
+
 int broadcast_block(unsigned char *block_buff, int size, PeerManager *pm) {
-  unsigned char out_buff[size];
+  unsigned char out_buff[size + 5];
   create_message(BLOCK_PROPOSAL, size, block_buff, out_buff);
   broadcast_message(out_buff, size + 5, pm);
   return 0;
@@ -154,6 +165,8 @@ block build_next_block(block *previous_block, node_ctx *ctx) {
       32 + 32 + 32 + 32 + 32 + 64 + 8 + 8 + 4 + (next_block.tx_count * TX_SIZE);
   unsigned char serialized_block[size];
   serialize_block(&next_block, serialized_block, size);
+  sign_block(&next_block, serialized_block, size, ctx->wallet);
+
   broadcast_block(serialized_block, size, ctx->peer_manager);
   free(previous_block->transactions);
   return next_block;

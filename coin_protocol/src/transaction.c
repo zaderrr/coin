@@ -51,6 +51,19 @@ transaction create_tx(char **args, Wallet *wallet) {
 
   return tx;
 }
+// Read transaction from payload
+transaction deserialize_tx(unsigned char *payload) {
+  // Acknowledged that this is very fragile
+  transaction tx = {0};
+  memcpy(&tx.type, payload, 1);
+  read_public_key(payload + 1, tx.from);
+  read_public_key(payload + 33, tx.to);
+  tx.amount = read_uint_64(payload + 65);
+  tx.nonce = read_uint_64(payload + 73);
+  read_signature(payload + 81, tx.signature);
+
+  return tx;
+}
 
 int send_transaction(char **args, int fd, Wallet *wallet) {
   transaction tx = create_tx(args, wallet);

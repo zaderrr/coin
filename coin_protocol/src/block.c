@@ -1,6 +1,9 @@
 #include "block.h"
 #include "merkle.h"
 #include "sodium.h"
+#include "transaction.h"
+#include "util.h"
+#include <netinet/in.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -27,3 +30,47 @@ int hash_block(block *block, unsigned char buff[32]) {
   crypto_hash_sha256(buff, block_buff, size);
   return 0;
 }
+
+block deserialize_block(unsigned char *buff, int length) {
+  block next_block = {0};
+  int offset = 0;
+
+  memcpy(&next_block.height, buff + offset, 8);
+  offset += 8;
+  memcpy(&next_block.prev_hash, buff + offset, 32);
+  offset += 32;
+  memcpy(&next_block.state_root, buff + offset, 32);
+  offset += 32;
+  memcpy(&next_block.validator_root, buff + offset, 32);
+  offset += 32;
+  memcpy(&next_block.tx_root, buff + offset, 32);
+  offset += 32;
+  memcpy(&next_block.timestamp, buff + offset, 8);
+  offset += 8;
+  memcpy(&next_block.proposer, buff + offset, 32);
+  offset += 32;
+  memcpy(&next_block.tx_count, buff + offset, 4);
+  offset += 4;
+
+  next_block.tx_count = ntohl(next_block.tx_count);
+  next_block.height = htonll(next_block.height);
+  next_block.timestamp = htonll(next_block.timestamp);
+
+  next_block.transactions = malloc(sizeof(transaction) * next_block.tx_count);
+
+  for (int i = 0; i < next_block.tx_count; i++) {
+    unsigned char tx[TX_SIZE];
+    memcpy(tx, buff + offset, TX_SIZE);
+    transaction deserialized_tx = deserialize_tx(tx);
+    next_block.transactions[i] = deserialized_tx;
+    offset += TX_SIZE;
+    printf("Done %d tx\n", i);
+  }
+
+  memcpy(&next_block.signature, buff + offset, 64);
+  offset += 64;
+
+  return next_block;
+}
+
+int validate_block() {}

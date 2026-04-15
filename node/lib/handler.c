@@ -1,6 +1,8 @@
+#include "block.h"
 #include "message.h"
 #include "node.h"
 #include "server.h"
+#include "transaction.h"
 #include "util.h"
 #include "validation.h"
 #include <stdlib.h>
@@ -12,20 +14,6 @@ unsigned char *get_public_key(unsigned char *buff) {
   public_key = malloc(32);
   memcpy(public_key, buff, 32);
   return public_key;
-}
-
-// Read transaction from payload
-transaction read_tx_from_buff(unsigned char *payload) {
-  // Acknowledged that this is very fragile
-  transaction tx = {0};
-  memcpy(&tx.type, payload, 1);
-  read_public_key(payload + 1, tx.from);
-  read_public_key(payload + 33, tx.to);
-  tx.amount = read_uint_64(payload + 65);
-  tx.nonce = read_uint_64(payload + 73);
-  read_signature(payload + 81, tx.signature);
-
-  return tx;
 }
 
 int mempool_contains(mempool *pool, transaction *tx) {
@@ -56,7 +44,7 @@ int handle_handshake(unsigned char *buff, struct pollfd client_fd,
 }
 
 int handle_tx(unsigned char *payload, node_ctx *ctx) {
-  transaction tx = read_tx_from_buff(payload);
+  transaction tx = deserialize_tx(payload);
   // TODO: Add validation for received data...
   if (verify_transaction(payload, &tx) != 1) {
     printf("Invalid signature.\n");
@@ -79,5 +67,10 @@ int handle_tx(unsigned char *payload, node_ctx *ctx) {
   ctx->mempool->tx[mempool_count] = tx;
   ctx->mempool->tx_count++;
   broadcast_tx(ctx, &tx);
+  return 0;
+}
+
+int handle_block_proposal(unsigned char *payload, node_ctx *ctx, int length) {
+  block new_block = deserialize_block(payload, length);
   return 0;
 }
