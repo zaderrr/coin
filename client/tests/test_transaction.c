@@ -14,7 +14,7 @@ void test_write_tx_to_buff(void) {
   tx.nonce = 42;
 
   unsigned char buf[256] = {0};
-  int ret = write_tx_to_buff(buf, &tx);
+  int ret = serialize_tx(buf, &tx, false);
   assert(ret == 0);
 
   // type at offset 0

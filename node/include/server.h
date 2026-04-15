@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 PeerManager *init_pm();
+int broadcast_message(unsigned char *buff, int length, PeerManager *pm);
 int broadcast_tx(node_ctx *ctx, transaction *tx);
 int init_network(node_ctx *ctx, uint16_t port);
 int listen_for_message(node_ctx *ctx);

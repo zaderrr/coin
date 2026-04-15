@@ -1,14 +1,18 @@
+#include "transaction.h"
 #include "block.h"
 #include "ed25519.h"
 #include "message.h"
 #include "util.h"
 #include "wallet.h"
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #define TX_DATA_SIZE 81 // 1 + 32 + 32 + 8 + 8
 
-int write_tx_to_buff(unsigned char *buff, transaction *tx) {
+// Writes `tx` to `buff`, `include_signature` writes the signature directly.
+// Ensure buff is correct size before `include_signature` = true
+int serialize_tx(unsigned char *buff, transaction *tx, bool include_signature) {
   uint64_t amount_n = htonll(tx->amount);
   uint64_t nonce_n = htonll(tx->nonce);
   memcpy(buff, &tx->type, 1);
@@ -16,7 +20,11 @@ int write_tx_to_buff(unsigned char *buff, transaction *tx) {
   memcpy(buff + 33, tx->to, 32);
   memcpy(buff + 65, &amount_n, 8);
   memcpy(buff + 73, &nonce_n, 8);
-  // Signature coppied during signing
+
+  if (include_signature == true) {
+    memcpy(buff + 81, tx->signature, 64);
+  }
+
   return 0;
 }
 
@@ -24,7 +32,6 @@ int write_tx_to_buff(unsigned char *buff, transaction *tx) {
 int sign_transaction(transaction *tx, Wallet *wallet, unsigned char *buff) {
   ed25519_sign(tx->signature, buff, TX_DATA_SIZE, wallet->public_key,
                wallet->private_key);
-
   memcpy(buff + TX_DATA_SIZE, tx->signature, 64);
   return 0;
 }
@@ -47,15 +54,13 @@ transaction create_tx(char **args, Wallet *wallet) {
 
 int send_transaction(char **args, int fd, Wallet *wallet) {
   transaction tx = create_tx(args, wallet);
-
-  unsigned char tx_buff[sizeof(transaction)];
+  unsigned char tx_buff[TX_SIZE];
   // Write tx to buffer + sign it.
-  write_tx_to_buff(tx_buff, &tx);
+  serialize_tx(tx_buff, &tx, false);
   sign_transaction(&tx, wallet, tx_buff);
 
-  int32_t payload_len = 1 + 32 + 32 + 8 + 8 + 64;
-  unsigned char buff[payload_len + 5];
-  create_message(TX_SUBMIT, payload_len, tx_buff, buff);
+  unsigned char buff[TX_SIZE + 5];
+  create_message(TX_SUBMIT, TX_SIZE, tx_buff, buff);
   send_message(sizeof(buff), buff, fd);
   free(args[0]);
   free(args[1]);

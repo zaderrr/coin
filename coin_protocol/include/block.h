@@ -1,23 +1,8 @@
 #ifndef COIN_BLOCK_H
 #define COIN_BLOCK_H
+#include "transaction.h"
 #include <stddef.h>
 #include <stdint.h>
-
-typedef enum {
-  TX_TRANSFER,
-  TX_STAKE_DEPOSIT,
-  TX_STAKE_WITHDRAW,
-} tx_type;
-
-typedef struct {
-  unsigned char from[32];
-  unsigned char to[32];
-  unsigned char signature[64];
-  uint64_t amount;
-  uint64_t nonce;
-
-  tx_type type;
-} transaction;
 
 typedef struct {
   unsigned char public_key[32];
@@ -39,9 +24,9 @@ typedef struct {
   uint8_t tx_root[32];
   uint64_t timestamp;
   unsigned char proposer[32];
-  uint8_t signature[64];
   uint32_t tx_count;
   transaction *transactions;
+  uint8_t signature[64];
 } block;
 
 typedef struct {

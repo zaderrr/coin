@@ -2,6 +2,7 @@ add_library(coin_protocol SHARED
   src/message.c
   src/block.c
   src/wallet.c
+  src/transaction.c
   src/util.c 
   src/merkle.c
   src/genesis.c

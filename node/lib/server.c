@@ -2,6 +2,7 @@
 #include "message.h"
 #include "node.h"
 #include "protocol.h"
+#include "transaction.h"
 #include "util.h"
 #include <arpa/inet.h>
 #include <stdlib.h>
@@ -139,35 +140,24 @@ int accept_connections(node_ctx *ctx) {
   return 0;
 }
 
-int build_tx_message(transaction *tx, uint8_t *buff) {
-  int offset = 0;
-  unsigned char type_byte = (unsigned char)tx->type;
-  tx->amount = htonll(tx->amount);
-  tx->nonce = htonll(tx->nonce);
-  memcpy(buff, &type_byte, 1);
-  memcpy(buff + 1, tx->from, 32);
-  memcpy(buff + 33, tx->to, 32);
-  memcpy(buff + 65, &tx->amount, 8);
-  memcpy(buff + 73, &tx->nonce, 8);
-  memcpy(buff + 81, tx->signature, 64);
+int broadcast_message(unsigned char *buff, int length, PeerManager *pm) {
+  for (int i = 0; i < pm->peer_count; i++) {
+    if (i == 0)
+      continue;
+    send(pm->peers[i].peer_fd, buff, length, 0);
+  }
   return 0;
 }
 
 int broadcast_tx(node_ctx *ctx, transaction *tx) {
   // This is where we tell our friends about the new transaction
   // Type, From, To, Amount, Nonce, Signature
-  size_t size = 1 + 32 + 32 + 8 + 8 + 64;
-  uint8_t buff[size];
-  build_tx_message(tx, buff);
-  uint8_t msg[size + 5];
-  write_header(TX_SUBMIT, size, msg);
-  memcpy(msg + 5, buff, size);
-  PeerManager *pm = ctx->peer_manager;
-  for (int i = 0; i < pm->peer_count; i++) {
-    if (i == 0)
-      continue;
-    send(pm->peers[i].peer_fd, msg, size + 5, 0);
-  }
+  uint8_t buff[TX_SIZE];
+  serialize_tx(buff, tx, true);
+  uint8_t msg[TX_SIZE + 5];
+  write_header(TX_SUBMIT, TX_SIZE, msg);
+  memcpy(msg + 5, buff, TX_SIZE);
+  broadcast_message(msg, TX_SIZE + 5, ctx->peer_manager);
   return 0;
 }
 
@@ -181,8 +171,8 @@ int handle_decoded(Message *message, struct pollfd client_fd, node_ctx ctx) {
     handle_tx(message->payload, &ctx);
     break;
   }
-  case PING: {
-    printf("Ping received");
+  case BLOCK_PROPOSAL: {
+    printf("Block received\n");
   }
   default: {
     break;

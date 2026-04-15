@@ -1,8 +1,11 @@
 #include "node.h"
 #include "block.h"
 #include "merkle.h"
+
+#include "message.h"
 #include "server.h"
 #include "time.h"
+#include "transaction.h"
 #include "validation.h"
 #include <sodium.h>
 #include <string.h>
@@ -64,6 +67,43 @@ int compare_tx(const void *a, const void *b) {
   return 0;
 }
 
+int *serialize_block(block *next_block, unsigned char *buff, int size) {
+
+  unsigned char block_buff[size];
+
+  int offset = 0;
+
+  memcpy(block_buff + offset, &next_block->height, 8);
+  offset += 8;
+  memcpy(block_buff + offset, &next_block->prev_hash, 32);
+  offset += 32;
+  memcpy(block_buff + offset, &next_block->state_root, 32);
+  offset += 32;
+  memcpy(block_buff + offset, &next_block->validator_root, 32);
+  offset += 32;
+  memcpy(block_buff + offset, &next_block->tx_root, 32);
+  offset += 32;
+  memcpy(block_buff + offset, &next_block->timestamp, 8);
+  offset += 8;
+  memcpy(block_buff + offset, &next_block->proposer, 32);
+  offset += 32;
+  memcpy(block_buff + offset, &next_block->tx_count, 4);
+  offset += 4;
+  for (int i = 0; i < next_block->tx_count; i++) {
+    unsigned char tx[TX_SIZE];
+    serialize_tx(tx, &next_block->transactions[i], true);
+    memcpy(block_buff + offset, tx, TX_SIZE);
+  }
+  return 0;
+}
+
+int broadcast_block(unsigned char *block_buff, int size, PeerManager *pm) {
+  unsigned char out_buff[size];
+  create_message(BLOCK_PROPOSAL, size, block_buff, out_buff);
+  broadcast_message(out_buff, size + 5, pm);
+  return 0;
+}
+
 block build_next_block(block *previous_block, node_ctx *ctx) {
   unsigned char prev_hash[32];
   hash_block(previous_block, prev_hash);
@@ -79,8 +119,7 @@ block build_next_block(block *previous_block, node_ctx *ctx) {
   transaction *block_tx = malloc(sizeof(transaction) * ctx->mempool->tx_count);
   int tx_count = 0;
 
-  // Sorts by account by nonce, so that we sort multiple transactions from the
-  // same account
+  // Sorts by account by nonce
   qsort(ctx->mempool->tx, ctx->mempool->tx_count, sizeof(transaction),
         compare_tx);
 
@@ -110,6 +149,12 @@ block build_next_block(block *previous_block, node_ctx *ctx) {
   memcpy(next_block.state_root, account_merkle, 32);
   memcpy(next_block.validator_root, val_merkle, 32);
   ctx->mempool->tx_count = 0;
+
+  int size =
+      32 + 32 + 32 + 32 + 32 + 64 + 8 + 8 + 4 + (next_block.tx_count * TX_SIZE);
+  unsigned char serialized_block[size];
+  serialize_block(&next_block, serialized_block, size);
+  broadcast_block(serialized_block, size, ctx->peer_manager);
   free(previous_block->transactions);
   return next_block;
 }

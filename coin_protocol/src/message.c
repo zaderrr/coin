@@ -63,6 +63,7 @@ int write_header(MessageType type, uint32_t length, unsigned char *buff) {
   return 0;
 }
 
+// Writes header to `out` buffer, and coppies payload +5 header offset
 int create_message(MessageType type, uint32_t length, unsigned char *payload,
                    unsigned char *out) {
   write_header(type, length, out);

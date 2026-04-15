@@ -8,7 +8,7 @@
 typedef struct {
   uint32_t IP;
   uint32_t buff_len;
-  unsigned char buff[2048];
+  unsigned char buff[20000];
   int peer_fd;
   uint16_t PORT;
 } Peer;

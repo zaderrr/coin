@@ -1,4 +1,4 @@
-add_library(client_lib lib/client.c lib/network.c lib/transaction.c lib/command.c)
+add_library(client_lib lib/client.c lib/network.c lib/command.c)
 target_include_directories(client_lib PUBLIC include)
 target_link_libraries(client_lib PUBLIC ed25519_lib coin_protocol)
 
