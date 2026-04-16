@@ -1,6 +1,7 @@
 #include "block.h"
 #include "genesis.h"
 #include "server.h"
+#include "util.h"
 #include "wallet.h"
 #include <node.h>
 #include <stdlib.h>
@@ -59,12 +60,11 @@ int main(int argc, char **argv) {
           hash_block(new_block, prev_hash);
           free(ctx.current_block->transactions);
           free(ctx.current_block);
-
           ctx.current_block = new_block;
+          display_state(&ctx);
         }
       }
     }
-    display_state(&ctx);
   }
   return 0;
 }

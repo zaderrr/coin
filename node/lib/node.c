@@ -74,7 +74,6 @@ block build_next_block(block *previous_block, node_ctx *ctx) {
   hash_block(previous_block, prev_hash);
   block next_block = {0};
   next_block.height = previous_block->height + 1;
-  next_block.tx_count = ctx->mempool->tx_count;
   next_block.transactions = ctx->mempool->tx;
   next_block.timestamp = (uint64_t)time(NULL);
 
@@ -102,8 +101,10 @@ block build_next_block(block *previous_block, node_ctx *ctx) {
     }
   }
   next_block.transactions = block_tx;
+  next_block.tx_count = tx_count;
+
   unsigned char root[32];
-  build_root(root, ctx->mempool->tx, ctx->mempool->tx_count);
+  build_root(root, block_tx, tx_count);
   memcpy(next_block.tx_root, root, 32);
 
   unsigned char account_merkle[32];

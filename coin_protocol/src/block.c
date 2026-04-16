@@ -125,32 +125,33 @@ int update_state(state *current_state, transaction *tx) {
   return 0;
 }
 
-int validate_block(block *val_block, block *prev_block, state *state) {
-  int next_index = get_next_validator(state, prev_block);
-  if (memcmp(val_block->proposer, state->validators[next_index].public_key,
-             32) != 0) {
-    printf("Incorrect proposer\n");
-    return 0;
-  }
+int validate_previous_hash(block *val_block, block *prev_block) {
   unsigned char prev_hash[32];
   hash_block(prev_block, prev_hash);
   if (memcmp(val_block->prev_hash, prev_hash, 32) != 0) {
     printf("Prev hash incorrect\n");
-    return 0;
+    return 1;
   }
-  if (val_block->height != prev_block->height + 1) {
-    printf("Invalid height\n");
-    return 0;
-  }
+  return 0;
+}
 
+int build_new_state(block *val_block, state *state) {
   for (int i = 0; i < val_block->tx_count; i++) {
     account *acc = get_account(state, val_block->transactions[i].from);
     if (validate_tx(&val_block->transactions[i], state, acc, val_block) == 1) {
-      printf("Invalid tx");
+      printf("Invalid tx\n");
+      return 0;
+    }
+    if (valid_nonce(acc, &val_block->transactions[i]) == 1) {
+      printf("Invalid nonce\n");
       return 0;
     }
     update_state(state, &val_block->transactions[i]);
   }
+  return 1;
+}
+
+int validate_roots(block *val_block, state *state) {
   unsigned char root[32];
   build_root(root, val_block->transactions, val_block->tx_count);
   if (memcmp(root, val_block->tx_root, 32) != 0) {
@@ -169,6 +170,30 @@ int validate_block(block *val_block, block *prev_block, state *state) {
                   state->validators_count);
   if (memcmp(val_merkle, val_block->validator_root, 32) != 0) {
     printf("Validator hash does not match\n");
+    return 0;
+  }
+  return 1;
+}
+
+int validate_block(block *val_block, block *prev_block, state *state) {
+  int next_index = get_next_validator(state, prev_block);
+  if (memcmp(val_block->proposer, state->validators[next_index].public_key,
+             32) != 0) {
+    printf("Incorrect proposer\n");
+    return 0;
+  }
+  if (validate_previous_hash(val_block, prev_block) == 1) {
+    return 0;
+  }
+
+  if (val_block->height != prev_block->height + 1) {
+    printf("Invalid height\n");
+    return 0;
+  }
+
+  build_new_state(val_block, state);
+
+  if (validate_roots(val_block, state) == 0) {
     return 0;
   }
 
