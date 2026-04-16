@@ -34,7 +34,6 @@ typedef struct {
   uint32_t validators_count;
   account *accounts;
   validator *validators;
-  block *previous_block;
 } state;
 
 _Static_assert(sizeof(account) == sizeof(validator), "struct size mismatch");
@@ -43,5 +42,10 @@ _Static_assert(sizeof(account) == 48, "unexpected struct size");
 uint64_t get_balance(unsigned char *public_key, state *current_state);
 int hash_block(block *block, unsigned char buff[32]);
 block deserialize_block(unsigned char *buff, int length);
+int sign_block(block *next_block, unsigned char *block_buff, int size,
+               Wallet *wallet);
 
+int update_state(state *current_state, transaction *tx);
+int verify_block(unsigned char *buff, block *block, int size);
+int validate_block(block *val_block, block *prev_block, state *state);
 #endif

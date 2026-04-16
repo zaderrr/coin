@@ -120,10 +120,11 @@ int init_network(node_ctx *ctx, uint16_t port) {
 int accept_connections(node_ctx *ctx) {
   struct pollfd *fds = ctx->peer_manager->fds;
   uint32_t *count = &ctx->peer_manager->peer_count;
-  int ready = poll(fds, *count, 5);
+  int new = 0;
+  int ready = poll(fds, *count, 1);
   if (ready < 0) {
     perror("poll");
-    return 1;
+    return -1;
   }
   if (fds[0].revents & POLLIN) {
     int client_fd = accept(fds[0].fd, NULL, NULL);
@@ -134,10 +135,11 @@ int accept_connections(node_ctx *ctx) {
       p.peer_fd = client_fd;
       ctx->peer_manager->peers[*count] = (Peer){.peer_fd = client_fd};
       *count += 1;
+      new++;
       printf("new client: fd %d\n", client_fd);
     }
   }
-  return 0;
+  return new;
 }
 
 int broadcast_message(unsigned char *buff, int length, PeerManager *pm) {
@@ -161,18 +163,18 @@ int broadcast_tx(node_ctx *ctx, transaction *tx) {
   return 0;
 }
 
-int handle_decoded(Message *message, struct pollfd client_fd, node_ctx ctx) {
+int handle_decoded(Message *message, struct pollfd client_fd, node_ctx *ctx) {
   switch (message->header->type) {
   case HANDSHAKE: {
-    handle_handshake(message->payload, client_fd, ctx.current_state);
+    handle_handshake(message->payload, client_fd, ctx->current_state);
     break;
   }
   case TX_SUBMIT: {
-    handle_tx(message->payload, &ctx);
+    handle_tx(message->payload, ctx);
     break;
   }
   case BLOCK_PROPOSAL: {
-    handle_block_proposal(message->payload, &ctx, message->header->payload_len);
+    handle_block_proposal(message->payload, ctx, message->header->payload_len);
   }
   default: {
     break;
@@ -207,7 +209,7 @@ uint32_t read_payload_len(unsigned char *buff) {
   return htonl(payload_len);
 }
 
-int process_messages(Peer *peer, struct pollfd fd, node_ctx ctx) {
+int process_messages(Peer *peer, struct pollfd fd, node_ctx *ctx) {
   while (peer->buff_len >= 5) {
     uint32_t payload_len = read_payload_len(peer->buff);
     size_t msg_size = payload_len + 5;
@@ -246,7 +248,7 @@ int listen_for_message(node_ctx *ctx) {
       continue;
     }
 
-    process_messages(peer, pm->fds[i], *ctx);
+    process_messages(peer, pm->fds[i], ctx);
   }
   return 0;
 }

@@ -60,7 +60,7 @@ int handle_tx(unsigned char *payload, node_ctx *ctx) {
     return 1;
   }
   account *from = get_account(ctx->current_state, tx.from);
-  if (validate_tx(&tx, ctx, from) == 1) {
+  if (validate_tx(&tx, ctx->current_state, from, ctx->current_block) == 1) {
     return 1;
   }
   int mempool_count = ctx->mempool->tx_count;
@@ -71,6 +71,21 @@ int handle_tx(unsigned char *payload, node_ctx *ctx) {
 }
 
 int handle_block_proposal(unsigned char *payload, node_ctx *ctx, int length) {
-  block new_block = deserialize_block(payload, length);
+  block *new_block = malloc(sizeof(block));
+  *new_block = deserialize_block(payload, length);
+  if (verify_block(payload, new_block, length) != 1) {
+    printf("Invalid signature...\n");
+    free(new_block);
+    return 1;
+  };
+  if (validate_block(new_block, ctx->current_block, ctx->current_state) != 1) {
+    printf("Invalid block\n");
+    free(new_block);
+    return 1;
+  }
+  free(ctx->current_block->transactions);
+  free(ctx->current_block);
+  ctx->current_block = new_block;
+  printf("Valid block!\n");
   return 0;
 }

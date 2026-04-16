@@ -9,12 +9,12 @@
 
 int min_validator_length() { return MIN_VALIDATOR_LENGTH; }
 
-int get_next_validator(state *current_state) {
+int get_next_validator(state *current_state, block *block) {
   int height;
-  if (current_state->previous_block == NULL) {
+  if (block == NULL) {
     height = 0;
   } else {
-    height = current_state->previous_block->height + 1;
+    height = block->height + 1;
   }
   int val_index = height % current_state->validators_count;
   return val_index;

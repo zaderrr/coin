@@ -24,6 +24,7 @@ typedef struct {
   mempool *mempool;
   Wallet *wallet;
   bool is_validator;
+  block *current_block;
 } node_ctx;
 
 typedef struct {
@@ -35,5 +36,5 @@ block build_next_block(block *previous_block, node_ctx *ctx);
 int read_args(int count, char **args, config *out);
 int init_validator(node_ctx *ctx);
 node_ctx init_context();
-void display_state(node_ctx ctx, block current_block);
+void display_state(node_ctx *ctx);
 #endif

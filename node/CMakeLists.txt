@@ -1,4 +1,4 @@
-add_library(node_lib lib/node.c lib/validation.c lib/handler.c lib/server.c)
+add_library(node_lib lib/node.c lib/handler.c lib/server.c)
 target_include_directories(node_lib PUBLIC include)
 target_link_libraries(node_lib PUBLIC ed25519_lib coin_protocol)
 

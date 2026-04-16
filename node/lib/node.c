@@ -15,44 +15,6 @@
 #define MAX_TX 256
 
 // Creates new account with the new balance
-int create_new_account(state *current_state, transaction *tx) {
-  current_state->accounts_count++;
-  int count = current_state->accounts_count;
-  account *new_accounts =
-      realloc(current_state->accounts, sizeof(account) * count);
-
-  account new = {0};
-  new.nonce = 0;
-  memcpy(new.public_key, tx->to, 32);
-
-  if (new_accounts == NULL) {
-    printf("Failed to add account\n");
-    return 1;
-  }
-
-  current_state->accounts = new_accounts;
-  current_state->accounts[current_state->accounts_count - 1] = new;
-  return 0;
-}
-
-int update_state(state *current_state, transaction *tx) {
-  if (tx->type == TX_TRANSFER) {
-    account *from = get_account(current_state, tx->from);
-    account *to = get_account(current_state, tx->to);
-    if (to == NULL) {
-      if (create_new_account(current_state, tx) == 1) {
-        return 1;
-      }
-      // Creating account, reallocates memory - Have to get pointers again
-      from = get_account(current_state, tx->from);
-      to = get_account(current_state, tx->to);
-    }
-    to->balance += tx->amount;
-    from->balance -= tx->amount;
-    from->nonce++;
-  }
-  return 0;
-}
 
 int compare_tx(const void *a, const void *b) {
   transaction *ta = (transaction *)a;
@@ -100,14 +62,6 @@ int serialize_block(block *next_block, unsigned char *buff, int size) {
   return 0;
 }
 
-int sign_block(block *next_block, unsigned char *block_buff, int size,
-               Wallet *wallet) {
-  ed25519_sign(next_block->signature, block_buff, size, wallet->public_key,
-               wallet->private_key);
-  memcpy(block_buff + (size - 64), next_block->signature, 64);
-  return 0;
-}
-
 int broadcast_block(unsigned char *block_buff, int size, PeerManager *pm) {
   unsigned char out_buff[size + 5];
   create_message(BLOCK_PROPOSAL, size, block_buff, out_buff);
@@ -137,7 +91,8 @@ block build_next_block(block *previous_block, node_ctx *ctx) {
   for (int i = 0; i < ctx->mempool->tx_count; i++) {
     transaction tx = ctx->mempool->tx[i];
     account *account = get_account(ctx->current_state, tx.from);
-    if (validate_tx(&tx, ctx, account) == 0) {
+    if (validate_tx(&tx, ctx->current_state, account, ctx->current_block) ==
+        0) {
       if (valid_nonce(account, &tx) == 1) {
         continue;
       }
@@ -166,9 +121,7 @@ block build_next_block(block *previous_block, node_ctx *ctx) {
   unsigned char serialized_block[size];
   serialize_block(&next_block, serialized_block, size);
   sign_block(&next_block, serialized_block, size, ctx->wallet);
-
   broadcast_block(serialized_block, size, ctx->peer_manager);
-  free(previous_block->transactions);
   return next_block;
 }
 
@@ -216,15 +169,15 @@ node_ctx init_context() {
   return ctx;
 }
 
-void display_state(node_ctx ctx, block current_block) {
+void display_state(node_ctx *ctx) {
   clear_term();
-  printf("Accounts: %u\n", ctx.current_state->accounts_count);
-  for (int i = 0; i < ctx.current_state->accounts_count; i++) {
-    format_pub(ctx.current_state->accounts[i].public_key);
-    printf(" Balance: %lu", ctx.current_state->accounts[i].balance);
-    printf(" Nonce: %lu\n", ctx.current_state->accounts[i].nonce);
+  printf("Accounts: %u\n", ctx->current_state->accounts_count);
+  for (int i = 0; i < ctx->current_state->accounts_count; i++) {
+    format_pub(ctx->current_state->accounts[i].public_key);
+    printf(" Balance: %lu", ctx->current_state->accounts[i].balance);
+    printf(" Nonce: %lu\n", ctx->current_state->accounts[i].nonce);
   }
-  printf("Current block: %lu\n", current_block.height);
+  printf("Current block: %lu\n", ctx->current_block->height);
 }
 
 int get_password(char *password) {
