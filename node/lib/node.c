@@ -32,32 +32,22 @@ int compare_tx(const void *a, const void *b) {
 }
 
 int serialize_block(block *next_block, unsigned char *buff, int size) {
-  int offset = 0;
-
   uint64_t timestamp = htonll(next_block->timestamp);
   uint64_t height = htonll(next_block->height);
   uint32_t tx_count = htonl(next_block->tx_count);
-  memcpy(buff + offset, &height, 8);
-  offset += 8;
-  memcpy(buff + offset, &next_block->prev_hash, 32);
-  offset += 32;
-  memcpy(buff + offset, &next_block->state_root, 32);
-  offset += 32;
-  memcpy(buff + offset, &next_block->validator_root, 32);
-  offset += 32;
-  memcpy(buff + offset, &next_block->tx_root, 32);
-  offset += 32;
-  memcpy(buff + offset, &timestamp, 8);
-  offset += 8;
-  memcpy(buff + offset, &next_block->proposer, 32);
-  offset += 32;
-  memcpy(buff + offset, &tx_count, 4);
-  offset += 4;
+  Writer w = {buff, buff + size};
+  WRITE_FIELD(&w, height, sizeof(next_block->height));
+  WRITE_FIELD(&w, next_block->prev_hash, sizeof(next_block->prev_hash));
+  WRITE_FIELD(&w, next_block->state_root, sizeof(next_block->state_root));
+  WRITE_FIELD(&w, next_block->validator_root,
+              sizeof(next_block->validator_root));
+  WRITE_FIELD(&w, next_block->tx_root, sizeof(next_block->tx_root));
+  WRITE_FIELD(&w, timestamp, sizeof(next_block->timestamp));
+  WRITE_FIELD(&w, next_block->proposer, sizeof(next_block->proposer));
+  WRITE_FIELD(&w, tx_count, sizeof(next_block->tx_count));
   for (int i = 0; i < next_block->tx_count; i++) {
-    unsigned char tx[TX_SIZE];
-    serialize_tx(tx, &next_block->transactions[i], true);
-    memcpy(buff + offset, tx, TX_SIZE);
-    offset += TX_SIZE;
+    transaction *tx = &next_block->transactions[i];
+    serialize_tx(&w, tx, true);
   }
   return 0;
 }
@@ -69,60 +59,76 @@ int broadcast_block(unsigned char *block_buff, int size, PeerManager *pm) {
   return 0;
 }
 
-block build_next_block(block *previous_block, node_ctx *ctx) {
+block create_block_header(block *previous_block, node_ctx *ctx) {
+
   unsigned char prev_hash[32];
   hash_block(previous_block, prev_hash);
   block next_block = {0};
   next_block.height = previous_block->height + 1;
-  next_block.transactions = ctx->mempool->tx;
   next_block.timestamp = (uint64_t)time(NULL);
 
   memcpy(next_block.proposer, ctx->wallet->public_key, 32);
   memcpy(next_block.prev_hash, prev_hash, 32);
+  return next_block;
+}
 
-  transaction *block_tx = malloc(sizeof(transaction) * ctx->mempool->tx_count);
+int create_block_transactions(block *next_block, mempool *mempool,
+                              state *current_state) {
+
+  transaction *block_tx = malloc(sizeof(transaction) * mempool->tx_count);
   int tx_count = 0;
 
   // Sorts by account by nonce
-  qsort(ctx->mempool->tx, ctx->mempool->tx_count, sizeof(transaction),
-        compare_tx);
+  qsort(mempool->tx, mempool->tx_count, sizeof(transaction), compare_tx);
 
-  for (int i = 0; i < ctx->mempool->tx_count; i++) {
-    transaction tx = ctx->mempool->tx[i];
-    account *account = get_account(ctx->current_state, tx.from);
-    if (validate_tx(&tx, ctx->current_state, account, ctx->current_block) ==
-        0) {
+  for (int i = 0; i < mempool->tx_count; i++) {
+    transaction tx = mempool->tx[i];
+    account *account = get_account(current_state, tx.from);
+    if (validate_tx(&tx, current_state, account, next_block) == 0) {
       if (valid_nonce(account, &tx) == 1) {
         continue;
       }
       block_tx[tx_count] = tx;
       tx_count++;
-      update_state(ctx->current_state, &tx);
+      update_state(current_state, &tx);
     }
   }
-  next_block.transactions = block_tx;
-  next_block.tx_count = tx_count;
+  next_block->transactions = block_tx;
+  next_block->tx_count = tx_count;
+  return 0;
+}
 
+int build_block_roots(block *next_block, state *current_state) {
   unsigned char root[32];
-  build_root(root, block_tx, tx_count);
-  memcpy(next_block.tx_root, root, 32);
+  build_root(root, next_block->transactions, next_block->tx_count);
+  memcpy(next_block->tx_root, root, 32);
 
   unsigned char account_merkle[32];
   unsigned char val_merkle[32];
-  build_root_hash((unsigned char *)ctx->current_state->accounts, account_merkle,
-                  ctx->current_state->accounts_count);
-  build_root_hash((unsigned char *)ctx->current_state->validators, val_merkle,
-                  ctx->current_state->validators_count);
-  memcpy(next_block.state_root, account_merkle, 32);
-  memcpy(next_block.validator_root, val_merkle, 32);
-  ctx->mempool->tx_count = 0;
+  build_root_hash((unsigned char *)current_state->accounts, account_merkle,
+                  current_state->accounts_count);
+  build_root_hash((unsigned char *)current_state->validators, val_merkle,
+                  current_state->validators_count);
+  memcpy(next_block->state_root, account_merkle, 32);
+  memcpy(next_block->validator_root, val_merkle, 32);
+  return 0;
+}
+
+block build_next_block(block *previous_block, node_ctx *ctx) {
+  block next_block = create_block_header(previous_block, ctx);
+  create_block_transactions(&next_block, ctx->mempool, ctx->current_state);
+  build_block_roots(&next_block, ctx->current_state);
 
   int size =
       32 + 32 + 32 + 32 + 32 + 64 + 8 + 8 + 4 + (next_block.tx_count * TX_SIZE);
   unsigned char serialized_block[size];
   serialize_block(&next_block, serialized_block, size);
+
   sign_block(&next_block, serialized_block, size, ctx->wallet);
+
   broadcast_block(serialized_block, size, ctx->peer_manager);
+
+  ctx->mempool->tx_count = 0;
   return next_block;
 }
 

@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
-void test_write_tx_to_buff(void) {
+void test_serialize(void) {
   transaction tx = {0};
   tx.type = 0x01;
   memset(tx.from, 0xAA, 32);
@@ -14,7 +14,8 @@ void test_write_tx_to_buff(void) {
   tx.nonce = 42;
 
   unsigned char buf[256] = {0};
-  int ret = serialize_tx(buf, &tx, false);
+  Writer w = {buf, buf + TX_SIZE};
+  int ret = serialize_tx(&w, &tx, false);
   assert(ret == 0);
 
   // type at offset 0
@@ -38,12 +39,12 @@ void test_write_tx_to_buff(void) {
   memcpy(&nonce_out, buf + 73, 8);
   assert(htonll(nonce_out) == 42);
 
-  printf("  PASS: write_tx_to_buff\n");
+  printf("  PASS: serialize_tx\n");
 }
 
 int main(void) {
   printf("Transaction client tests:\n");
-  test_write_tx_to_buff();
+  test_serialize();
   printf("all passed\n");
   return 0;
 }

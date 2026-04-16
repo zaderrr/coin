@@ -44,9 +44,11 @@ int handle_handshake(unsigned char *buff, struct pollfd client_fd,
 }
 
 int handle_tx(unsigned char *payload, node_ctx *ctx) {
-  transaction tx = deserialize_tx(payload);
+  Reader r = {payload, payload + TX_SIZE};
+  transaction *tx = malloc(sizeof(transaction));
+  deserialize_tx(&r, tx);
   // TODO: Add validation for received data...
-  if (verify_transaction(payload, &tx) != 1) {
+  if (verify_transaction(payload, tx) != 1) {
     printf("Invalid signature.\n");
     return 1;
   }
@@ -55,24 +57,26 @@ int handle_tx(unsigned char *payload, node_ctx *ctx) {
     return 1;
   }
   // Check we don't already have this transaction
-  if (mempool_contains(ctx->mempool, &tx) == 0) {
+  if (mempool_contains(ctx->mempool, tx) == 0) {
     printf("We already have this tx...\n");
     return 1;
   }
-  account *from = get_account(ctx->current_state, tx.from);
-  if (validate_tx(&tx, ctx->current_state, from, ctx->current_block) == 1) {
+  account *from = get_account(ctx->current_state, tx->from);
+  if (validate_tx(tx, ctx->current_state, from, ctx->current_block) == 1) {
     return 1;
   }
   int mempool_count = ctx->mempool->tx_count;
-  ctx->mempool->tx[mempool_count] = tx;
+  ctx->mempool->tx[mempool_count] = *tx;
   ctx->mempool->tx_count++;
-  broadcast_tx(ctx, &tx);
+  broadcast_tx(ctx, tx);
   return 0;
 }
 
 int handle_block_proposal(unsigned char *payload, node_ctx *ctx, int length) {
   block *new_block = malloc(sizeof(block));
-  *new_block = deserialize_block(payload, length);
+  if (deserialize_block(payload, length, new_block) == 1) {
+    return 1;
+  }
   if (verify_block(payload, new_block, length) != 1) {
     printf("Invalid signature...\n");
     free(new_block);

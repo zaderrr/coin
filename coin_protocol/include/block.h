@@ -41,7 +41,7 @@ _Static_assert(sizeof(account) == 48, "unexpected struct size");
 
 uint64_t get_balance(unsigned char *public_key, state *current_state);
 int hash_block(block *block, unsigned char buff[32]);
-block deserialize_block(unsigned char *buff, int length);
+int deserialize_block(unsigned char *buff, int length, block *out);
 int sign_block(block *next_block, unsigned char *block_buff, int size,
                Wallet *wallet);
 

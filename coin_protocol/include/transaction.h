@@ -1,5 +1,6 @@
 #ifndef COIN_TX_H
 #define COIN_TX_H
+#include "util.h"
 #include "wallet.h"
 #include <stdbool.h>
 
@@ -24,6 +25,6 @@ typedef struct {
 _Static_assert(sizeof(transaction) - 7 == TX_SIZE, "struct size mismatch");
 
 int send_transaction(char **args, int fd, Wallet *wallet);
-transaction deserialize_tx(unsigned char *payload);
-int serialize_tx(unsigned char *buff, transaction *tx, bool include_signature);
+int deserialize_tx(Reader *reader, transaction *out);
+int serialize_tx(Writer *writer, transaction *tx, bool include_signature);
 #endif

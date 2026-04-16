@@ -1,5 +1,4 @@
 #include "message.h"
-#include "block.h"
 #include "util.h"
 #include <arpa/inet.h>
 #include <endian.h>
@@ -11,37 +10,17 @@
 #include <sys/poll.h>
 #include <unistd.h>
 
-uint64_t read_uint_64(unsigned char *buff) {
-  uint64_t val = 0;
-  memcpy(&val, buff, 8);
-  val = htonll(val);
-  return val;
-}
-
-int read_signature(unsigned char *buff, unsigned char *dest) {
-  memcpy(dest, buff, 64);
-  return 0;
-}
-
-int *read_public_key(unsigned char *buff, unsigned char *dest) {
-  memcpy(dest, buff, 32);
-  return 0;
-}
-
-uint32_t read_uint_32(unsigned char *buff) {
-  uint32_t val = 0;
-  memcpy(&val, buff, 4);
-  val = ntohl(val);
-  return val;
-}
-
 int read_header(unsigned char *buff, Message *message) {
   message->header = malloc(sizeof(struct MessageHeader));
   message->header->payload_len = 0;
   message->header->type = 0;
+  Reader r = {buff, buff + 5};
   message->header->type = (enum MessageType)buff[0];
-  buff = buff + 1;
-  message->header->payload_len = read_uint_32(buff);
+
+  READ_FIELD(&r, message->header->type, 1);
+  READ_FIELD(&r, message->header->payload_len,
+             sizeof(message->header->payload_len));
+  message->header->payload_len = ntohl(message->header->payload_len);
   return 0;
 }
 

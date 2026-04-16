@@ -12,17 +12,18 @@
 
 // Writes `tx` to `buff`, `include_signature` writes the signature directly.
 // Ensure buff is correct size before `include_signature` = true
-int serialize_tx(unsigned char *buff, transaction *tx, bool include_signature) {
+int serialize_tx(Writer *w, transaction *tx, bool include_signature) {
   uint64_t amount_n = htonll(tx->amount);
   uint64_t nonce_n = htonll(tx->nonce);
-  memcpy(buff, &tx->type, 1);
-  memcpy(buff + 1, tx->from, 32);
-  memcpy(buff + 33, tx->to, 32);
-  memcpy(buff + 65, &amount_n, 8);
-  memcpy(buff + 73, &nonce_n, 8);
+
+  WRITE_FIELD(w, tx->type, 1);
+  WRITE_FIELD(w, tx->from, sizeof(tx->from));
+  WRITE_FIELD(w, tx->to, sizeof(tx->to));
+  WRITE_FIELD(w, amount_n, sizeof(amount_n));
+  WRITE_FIELD(w, nonce_n, sizeof(nonce_n));
 
   if (include_signature == true) {
-    memcpy(buff + 81, tx->signature, 64);
+    WRITE_FIELD(w, tx->signature, sizeof(tx->signature));
   }
 
   return 0;
@@ -52,24 +53,27 @@ transaction create_tx(char **args, Wallet *wallet) {
   return tx;
 }
 // Read transaction from payload
-transaction deserialize_tx(unsigned char *payload) {
-  // Acknowledged that this is very fragile
+int deserialize_tx(Reader *r, transaction *out) {
   transaction tx = {0};
-  memcpy(&tx.type, payload, 1);
-  read_public_key(payload + 1, tx.from);
-  read_public_key(payload + 33, tx.to);
-  tx.amount = read_uint_64(payload + 65);
-  tx.nonce = read_uint_64(payload + 73);
-  read_signature(payload + 81, tx.signature);
+  READ_FIELD(r, tx.type, 1);
+  READ_FIELD(r, tx.from, sizeof(tx.from));
+  READ_FIELD(r, tx.to, sizeof(tx.to));
+  READ_FIELD(r, tx.amount, sizeof(tx.amount));
+  READ_FIELD(r, tx.nonce, sizeof(tx.nonce));
+  READ_FIELD(r, tx.signature, sizeof(tx.signature));
 
-  return tx;
+  tx.nonce = htonll(tx.nonce);
+  tx.amount = htonll(tx.amount);
+  memcpy(out, &tx, TX_SIZE);
+  return 0;
 }
 
 int send_transaction(char **args, int fd, Wallet *wallet) {
   transaction tx = create_tx(args, wallet);
   unsigned char tx_buff[TX_SIZE];
   // Write tx to buffer + sign it.
-  serialize_tx(tx_buff, &tx, false);
+  Writer w = {tx_buff, tx_buff + TX_SIZE};
+  serialize_tx(&w, &tx, false);
   sign_transaction(&tx, wallet, tx_buff);
 
   unsigned char buff[TX_SIZE + 5];

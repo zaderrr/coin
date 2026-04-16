@@ -41,26 +41,18 @@ int hash_block(block *block, unsigned char buff[32]) {
   return 0;
 }
 
-block deserialize_block(unsigned char *buff, int length) {
+int deserialize_block(unsigned char *buff, int length, block *out) {
   block next_block = {0};
-  int offset = 0;
+  Reader r = {buff, buff + length};
 
-  memcpy(&next_block.height, buff + offset, 8);
-  offset += 8;
-  memcpy(&next_block.prev_hash, buff + offset, 32);
-  offset += 32;
-  memcpy(&next_block.state_root, buff + offset, 32);
-  offset += 32;
-  memcpy(&next_block.validator_root, buff + offset, 32);
-  offset += 32;
-  memcpy(&next_block.tx_root, buff + offset, 32);
-  offset += 32;
-  memcpy(&next_block.timestamp, buff + offset, 8);
-  offset += 8;
-  memcpy(&next_block.proposer, buff + offset, 32);
-  offset += 32;
-  memcpy(&next_block.tx_count, buff + offset, 4);
-  offset += 4;
+  READ_FIELD(&r, next_block.height, sizeof(next_block.height));
+  READ_FIELD(&r, next_block.prev_hash, sizeof(next_block.prev_hash));
+  READ_FIELD(&r, next_block.state_root, sizeof(next_block.state_root));
+  READ_FIELD(&r, next_block.validator_root, sizeof(next_block.validator_root));
+  READ_FIELD(&r, next_block.tx_root, sizeof(next_block.tx_root));
+  READ_FIELD(&r, next_block.timestamp, sizeof(next_block.timestamp));
+  READ_FIELD(&r, next_block.proposer, sizeof(next_block.proposer));
+  READ_FIELD(&r, next_block.tx_count, sizeof(next_block.tx_count));
 
   next_block.tx_count = ntohl(next_block.tx_count);
   next_block.height = htonll(next_block.height);
@@ -69,17 +61,18 @@ block deserialize_block(unsigned char *buff, int length) {
   next_block.transactions = malloc(sizeof(transaction) * next_block.tx_count);
 
   for (int i = 0; i < next_block.tx_count; i++) {
-    unsigned char tx[TX_SIZE];
-    memcpy(tx, buff + offset, TX_SIZE);
-    transaction deserialized_tx = deserialize_tx(tx);
-    next_block.transactions[i] = deserialized_tx;
-    offset += TX_SIZE;
+    transaction *tx = malloc(sizeof(transaction));
+    if (deserialize_tx(&r, tx) == 1) {
+      free(tx);
+      printf("10\n");
+      return 1;
+    }
+    memcpy(&next_block.transactions[i], tx, TX_SIZE);
   }
+  READ_FIELD(&r, next_block.signature, sizeof(next_block.signature));
+  memcpy(out, &next_block, sizeof(next_block));
 
-  memcpy(&next_block.signature, buff + offset, 64);
-  offset += 64;
-
-  return next_block;
+  return 0;
 }
 
 int verify_block(unsigned char *buff, block *block, int size) {

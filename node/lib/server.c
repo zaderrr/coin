@@ -136,7 +136,6 @@ int accept_connections(node_ctx *ctx) {
       ctx->peer_manager->peers[*count] = (Peer){.peer_fd = client_fd};
       *count += 1;
       new++;
-      printf("new client: fd %d\n", client_fd);
     }
   }
   return new;
@@ -155,7 +154,8 @@ int broadcast_tx(node_ctx *ctx, transaction *tx) {
   // This is where we tell our friends about the new transaction
   // Type, From, To, Amount, Nonce, Signature
   uint8_t buff[TX_SIZE];
-  serialize_tx(buff, tx, true);
+  Writer w = {buff, buff + TX_SIZE};
+  serialize_tx(&w, tx, true);
   uint8_t msg[TX_SIZE + 5];
   write_header(TX_SUBMIT, TX_SIZE, msg);
   memcpy(msg + 5, buff, TX_SIZE);

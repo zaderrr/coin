@@ -1,10 +1,11 @@
 #include "message.h"
 #include "protocol.h"
+#include "util.h"
 #include "wallet.h"
 #include <netinet/in.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -35,9 +36,10 @@ int connect_to_node(Peer peer, unsigned char *public_key) {
 }
 int handle_init_balance(unsigned char *balance, struct pollfd client_fd,
                         Wallet *wallet) {
-  uint64_t bal = read_uint_64(balance);
-  wallet->balance = bal;
-  printf("Balance: %lu\n", bal);
+  Reader r = {balance, balance + sizeof(uint64_t)};
+  READ_FIELD(&r, wallet->balance, sizeof(uint64_t));
+  wallet->balance = htonll(wallet->balance);
+  printf("Balance: %lu\n", wallet->balance);
   return 0;
 }
 int handle_decoded(Message *message, struct pollfd client_fd, Wallet *wallet) {
