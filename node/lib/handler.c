@@ -72,24 +72,36 @@ int handle_tx(unsigned char *payload, node_ctx *ctx) {
   return 0;
 }
 
+int free_block(block *block) {
+  if (block == NULL) {
+    return 1;
+  }
+  if (block->transactions != NULL) {
+    free(block->transactions);
+  }
+  free(block);
+  return 0;
+}
+
 int handle_block_proposal(unsigned char *payload, node_ctx *ctx, int length) {
   block *new_block = malloc(sizeof(block));
   if (deserialize_block(payload, length, new_block) == 1) {
     return 1;
   }
   if (verify_block(payload, new_block, length) != 1) {
-    printf("Invalid signature...\n");
-    free(new_block);
+    free_block(new_block);
     return 1;
   };
   if (validate_block(new_block, ctx->current_block, ctx->current_state) != 1) {
-    printf("Invalid block\n");
-    free(new_block);
+    free_block(new_block);
     return 1;
   }
-  free(ctx->current_block->transactions);
-  free(ctx->current_block);
+  free_block(ctx->current_block);
   ctx->current_block = new_block;
-  printf("Valid block!\n");
+  unsigned char send_buff[length + 5];
+  create_message(BLOCK_PROPOSAL, length, payload, send_buff);
+  broadcast_message(send_buff, length + 5, ctx->peer_manager);
+  printf("Valid! sent to peers\n");
+  display_state(ctx);
   return 0;
 }

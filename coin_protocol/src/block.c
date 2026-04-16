@@ -32,11 +32,12 @@ int hash_block(block *block, unsigned char buff[32]) {
   // Height, prev_hash, tx_root, proposer, timestamp
   int size = 8 + 32 + 32 + 32 + 8;
   unsigned char block_buff[size];
-  memcpy(block_buff, &block->height, 8);
-  memcpy(block_buff + 8, block->prev_hash, 32);
-  memcpy(block_buff + 40, block->tx_root, 32);
-  memcpy(block_buff + 72, block->proposer, 32);
-  memcpy(block_buff + 104, &block->timestamp, 8);
+  Writer w = {block_buff, block_buff + size};
+  WRITE_FIELD(&w, block->height, sizeof(block->height));
+  WRITE_FIELD(&w, block->prev_hash, sizeof(block->prev_hash));
+  WRITE_FIELD(&w, block->tx_root, sizeof(block->tx_root));
+  WRITE_FIELD(&w, block->proposer, sizeof(block->proposer));
+  WRITE_FIELD(&w, block->timestamp, sizeof(block->timestamp));
   crypto_hash_sha256(buff, block_buff, size);
   return 0;
 }
@@ -61,13 +62,11 @@ int deserialize_block(unsigned char *buff, int length, block *out) {
   next_block.transactions = malloc(sizeof(transaction) * next_block.tx_count);
 
   for (int i = 0; i < next_block.tx_count; i++) {
-    transaction *tx = malloc(sizeof(transaction));
-    if (deserialize_tx(&r, tx) == 1) {
-      free(tx);
-      printf("10\n");
+    transaction tx = {0};
+    if (deserialize_tx(&r, &tx) == 1) {
       return 1;
     }
-    memcpy(&next_block.transactions[i], tx, TX_SIZE);
+    next_block.transactions[i] = tx;
   }
   READ_FIELD(&r, next_block.signature, sizeof(next_block.signature));
   memcpy(out, &next_block, sizeof(next_block));
@@ -122,7 +121,6 @@ int validate_previous_hash(block *val_block, block *prev_block) {
   unsigned char prev_hash[32];
   hash_block(prev_block, prev_hash);
   if (memcmp(val_block->prev_hash, prev_hash, 32) != 0) {
-    printf("Prev hash incorrect\n");
     return 1;
   }
   return 0;
@@ -172,7 +170,6 @@ int validate_block(block *val_block, block *prev_block, state *state) {
   int next_index = get_next_validator(state, prev_block);
   if (memcmp(val_block->proposer, state->validators[next_index].public_key,
              32) != 0) {
-    printf("Incorrect proposer\n");
     return 0;
   }
   if (validate_previous_hash(val_block, prev_block) == 1) {
@@ -180,7 +177,6 @@ int validate_block(block *val_block, block *prev_block, state *state) {
   }
 
   if (val_block->height != prev_block->height + 1) {
-    printf("Invalid height\n");
     return 0;
   }
 

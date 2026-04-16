@@ -68,8 +68,8 @@ int connect_to_peers(node_ctx *ctx, struct pollfd server_fd, uint16_t port) {
     pm->peers[pm->peer_count] = p;
     pm->fds[pm->peer_count] = (struct pollfd){.fd = peer_fd, .events = POLLIN};
     pm->peer_count++;
-    free(default_peers);
   }
+  free(default_peers);
   return 0;
 }
 

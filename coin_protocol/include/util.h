@@ -9,9 +9,9 @@
       return 1;                                                                \
   } while (0)
 
-#define WRITE_FIELD(r, field, len)                                             \
+#define WRITE_FIELD(w, field, len)                                             \
   do {                                                                         \
-    if (!write_bytes((r), &(field), len))                                      \
+    if (!write_bytes((w), &(field), len))                                      \
       return 1;                                                                \
   } while (0)
 
