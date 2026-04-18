@@ -1,12 +1,10 @@
 #include "transaction.h"
-#include "block.h"
 #include "ed25519.h"
 #include "message.h"
 #include "util.h"
 #include "wallet.h"
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
 #define TX_DATA_SIZE 81 // 1 + 32 + 32 + 8 + 8
 

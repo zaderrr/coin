@@ -1,5 +1,4 @@
 #include "message.h"
-#include "protocol.h"
 #include "util.h"
 #include "wallet.h"
 #include <netinet/in.h>

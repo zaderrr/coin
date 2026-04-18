@@ -1,5 +1,6 @@
 #include "block.h"
 #include "merkle.h"
+#include "state.h"
 #include <stdlib.h>
 #include <string.h>
 block build_genesis(account *accounts, validator *validators) {
@@ -13,14 +14,10 @@ block build_genesis(account *accounts, validator *validators) {
       .signature = {0},
       .tx_root = {0},
   };
-  size_t leaf_size = 32 + 8 + 8;
-  uint8_t *acc_leaf = state_to_leaf((unsigned char *)&accounts[0]);
-  uint8_t *val_leaf = state_to_leaf((unsigned char *)&validators[0]);
-  compute_merkle_root(&acc_leaf, 1, genesis.state_root, leaf_size);
-  compute_merkle_root(&val_leaf, 1, genesis.validator_root, leaf_size);
-
-  free(acc_leaf);
-  free(val_leaf);
+  size_t acc_size = 32 + 8 + 8;
+  size_t val_size = 32 + 8;
+  build_accounts_hash(accounts, genesis.state_root, 1);
+  build_validators_hash(validators, genesis.validator_root, 1);
   return genesis;
 }
 
@@ -37,7 +34,8 @@ int build_gen_state(state *current_state) {
       .balance = 9000,
       .nonce = 0,
   };
-  memcpy(accounts, &init_account, 48);
+  accounts[0] = init_account;
+
   validator init_validator = {
       .public_key =
           {
@@ -45,11 +43,16 @@ int build_gen_state(state *current_state) {
               0xcf, 0xf1, 0x6d, 0xf1, 0x8f, 0x16, 0x67, 0x88, 0xda, 0x3c, 0x71,
               0x9e, 0x04, 0x55, 0x34, 0xde, 0x15, 0x6f, 0x64, 0x7f, 0x02,
           },
-
       .stake = 1000,
-      .block_joined = 0,
   };
-  memcpy(validators, &init_validator, 48);
+  validator_activity act = {0};
+  act.joined = 0;
+  act.left = 0;
+  init_validator.activity = malloc(sizeof(validator_activity));
+  init_validator.activity[0] = act;
+  init_validator.activity_length = 1;
+  validators[0] = init_validator;
+
   current_state->accounts_count = 1;
   current_state->validators_count = 1;
   current_state->accounts = accounts;

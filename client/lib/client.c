@@ -1,8 +1,5 @@
 #include "client.h"
-#include "block.h"
 #include "sodium.h"
-#include "transaction.h"
-#include <ctype.h>
 #include <message.h>
 #include <stdint.h>
 #include <stdlib.h>

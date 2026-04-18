@@ -1,9 +1,10 @@
-#include "block.h"
+#include "state.h"
 #include <sodium/crypto_hash_sha256.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+
 int compute_merkle_root(uint8_t **leaves, uint32_t count, uint8_t *root,
                         size_t leaf_size) {
   if (count == 0) {
@@ -39,12 +40,21 @@ int compute_merkle_root(uint8_t **leaves, uint32_t count, uint8_t *root,
   return 0;
 }
 
-uint8_t *state_to_leaf(unsigned char *state) {
+uint8_t *account_to_leaf(account *state) {
   size_t leaf_size = 32 + 8 + 8;
   uint8_t *leaf = malloc(leaf_size);
+  memcpy(leaf, state->public_key, 32);
+  memcpy(leaf + 32, &state->balance, 8);
+  memcpy(leaf + 40, &state->nonce, 8);
+  return leaf;
+}
+
+// TODO: Update these to Writers
+uint8_t *validator_to_leaf(validator *state) {
+  size_t leaf_size = 32 + 8;
+  uint8_t *leaf = malloc(leaf_size);
   memcpy(leaf, state, 32);
-  memcpy(leaf + 32, state + 32, 8);
-  memcpy(leaf + 40, state + 32 + 8, 8);
+  memcpy(leaf + 32, &state->stake, 8);
   return leaf;
 }
 
@@ -83,14 +93,29 @@ int build_root(unsigned char *root, transaction *tx, int tx_count) {
   return 0;
 }
 
-int build_root_hash(unsigned char *item, unsigned char *out_buf, int count) {
+int build_accounts_hash(account *acc, unsigned char *out_buf, int count) {
   unsigned char **leaves = malloc(sizeof(char *) * count);
 
   for (int i = 0; i < count; i++) {
-    leaves[i] = state_to_leaf(&item[i]);
+    leaves[i] = account_to_leaf(&acc[i]);
   }
 
   size_t leaf_size = 32 + 8 + 8;
+  compute_merkle_root(leaves, count, out_buf, leaf_size);
+
+  free_leaves(leaves, count);
+
+  return 0;
+}
+
+int build_validators_hash(validator *val, unsigned char *out_buf, int count) {
+  unsigned char **leaves = malloc(sizeof(char *) * count);
+
+  for (int i = 0; i < count; i++) {
+    leaves[i] = validator_to_leaf(&val[i]);
+  }
+
+  size_t leaf_size = 32 + 8;
   compute_merkle_root(leaves, count, out_buf, leaf_size);
 
   free_leaves(leaves, count);

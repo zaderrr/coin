@@ -90,7 +90,7 @@ int create_block_transactions(block *next_block, mempool *mempool,
       }
       block_tx[tx_count] = tx;
       tx_count++;
-      update_state(current_state, &tx);
+      update_state(current_state, &tx, next_block);
     }
   }
   next_block->transactions = block_tx;
@@ -105,10 +105,10 @@ int build_block_roots(block *next_block, state *current_state) {
 
   unsigned char account_merkle[32];
   unsigned char val_merkle[32];
-  build_root_hash((unsigned char *)current_state->accounts, account_merkle,
-                  current_state->accounts_count);
-  build_root_hash((unsigned char *)current_state->validators, val_merkle,
-                  current_state->validators_count);
+  build_accounts_hash(current_state->accounts, account_merkle,
+                      current_state->accounts_count);
+  build_validators_hash(current_state->validators, val_merkle,
+                        current_state->validators_count);
   memcpy(next_block->state_root, account_merkle, 32);
   memcpy(next_block->validator_root, val_merkle, 32);
   return 0;

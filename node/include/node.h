@@ -1,5 +1,5 @@
 #include "block.h"
-#include "protocol.h"
+#include "state.h"
 #include "stdbool.h"
 #include "wallet.h"
 

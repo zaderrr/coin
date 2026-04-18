@@ -1,7 +1,6 @@
 #include "handler.h"
 #include "message.h"
 #include "node.h"
-#include "protocol.h"
 #include "transaction.h"
 #include "util.h"
 #include <arpa/inet.h>

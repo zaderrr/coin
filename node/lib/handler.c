@@ -1,4 +1,5 @@
 #include "block.h"
+#include "merkle.h"
 #include "message.h"
 #include "node.h"
 #include "server.h"

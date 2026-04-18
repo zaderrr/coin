@@ -1,8 +1,8 @@
 #include "block.h"
 #include "ed25519.h"
 #include "merkle.h"
-#include "protocol.h"
 #include "sodium.h"
+#include "state.h"
 #include "transaction.h"
 #include "util.h"
 #include "validation.h"
@@ -78,78 +78,6 @@ int verify_block(unsigned char *buff, block *block, int size) {
   return ed25519_verify(block->signature, buff, size - 64, block->proposer);
 }
 
-int create_new_validator(state *current_state, transaction *tx) {
-  current_state->validators_count++;
-  int count = current_state->validators_count;
-  validator *new_validators =
-      realloc(current_state->validators, sizeof(validator) * count);
-
-  validator new = {0};
-  new.block_joined = 0;
-  memcpy(new.public_key, tx->from, 32);
-
-  if (new_validators == NULL) {
-    current_state->validators_count--;
-    printf("Failed to add validator\n");
-    return 1;
-  }
-
-  current_state->validators = new_validators;
-  current_state->validators[current_state->validators_count - 1] = new;
-  return 0;
-}
-
-int create_new_account(state *current_state, transaction *tx) {
-  current_state->accounts_count++;
-  int count = current_state->accounts_count;
-  account *new_accounts =
-      realloc(current_state->accounts, sizeof(account) * count);
-
-  account new = {0};
-  new.nonce = 0;
-  memcpy(new.public_key, tx->to, 32);
-
-  if (new_accounts == NULL) {
-    printf("Failed to add account\n");
-    return 1;
-  }
-
-  current_state->accounts = new_accounts;
-  current_state->accounts[current_state->accounts_count - 1] = new;
-  return 0;
-}
-
-int update_state(state *current_state, transaction *tx) {
-  if (tx->type == TX_TRANSFER) {
-    account *from = get_account(current_state, tx->from);
-    account *to = get_account(current_state, tx->to);
-    if (to == NULL) {
-      if (create_new_account(current_state, tx) == 1) {
-        return 1;
-      }
-      // Creating account, reallocates memory - Have to get pointers again
-      from = get_account(current_state, tx->from);
-      to = get_account(current_state, tx->to);
-    }
-    to->balance += tx->amount;
-    from->balance -= tx->amount;
-    from->nonce++;
-  } else if (tx->type == TX_STAKE_DEPOSIT) {
-    validator *val = get_validator(current_state, tx->from);
-    if (val == NULL) {
-      if (create_new_validator(current_state, tx) == 1) {
-        return 1;
-      }
-      val = get_validator(current_state, tx->from);
-    }
-    account *from = get_account(current_state, tx->from);
-    from->balance -= tx->amount;
-    from->nonce++;
-    val->stake += tx->amount;
-  }
-  return 0;
-}
-
 int validate_previous_hash(block *val_block, block *prev_block) {
   unsigned char prev_hash[32];
   hash_block(prev_block, prev_hash);
@@ -170,11 +98,12 @@ int build_new_state(block *val_block, state *state) {
       printf("Invalid nonce\n");
       return 0;
     }
-    update_state(state, &val_block->transactions[i]);
+    update_state(state, &val_block->transactions[i], val_block);
   }
   return 1;
 }
 
+// TODO: Refactor this with the same as build_next_block
 int validate_roots(block *val_block, state *state) {
   unsigned char root[32];
   build_root(root, val_block->transactions, val_block->tx_count);
@@ -182,16 +111,20 @@ int validate_roots(block *val_block, state *state) {
     printf("TX merkle does not match\n");
     return 0;
   }
+
   unsigned char account_merkle[32];
   unsigned char val_merkle[32];
-  build_root_hash((unsigned char *)state->accounts, account_merkle,
-                  state->accounts_count);
+
+  build_accounts_hash(state->accounts, account_merkle, state->accounts_count);
   if (memcmp(account_merkle, val_block->state_root, 32) != 0) {
+    printf("Calculated: ");
+    print_public_key(account_merkle);
+    printf("Received: ");
+    print_public_key(val_block->state_root);
     printf("State hash does not match\n");
     return 0;
   }
-  build_root_hash((unsigned char *)state->validators, val_merkle,
-                  state->validators_count);
+  build_validators_hash(state->validators, val_merkle, state->validators_count);
   if (memcmp(val_merkle, val_block->validator_root, 32) != 0) {
     printf("Validator hash does not match\n");
     return 0;
@@ -200,9 +133,8 @@ int validate_roots(block *val_block, state *state) {
 }
 
 int validate_block(block *val_block, block *prev_block, state *state) {
-  int next_index = get_next_validator(state, prev_block);
-  if (memcmp(val_block->proposer, state->validators[next_index].public_key,
-             32) != 0) {
+  validator *val = get_next_validator(state, prev_block);
+  if (memcmp(val_block->proposer, val->public_key, 32) != 0) {
     return 0;
   }
   if (validate_previous_hash(val_block, prev_block) == 1) {

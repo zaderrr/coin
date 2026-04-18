@@ -1,4 +1,3 @@
-#include "protocol.h"
 #include "transaction.h"
 #include "util.h"
 #include <assert.h>

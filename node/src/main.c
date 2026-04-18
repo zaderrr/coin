@@ -51,9 +51,9 @@ int main(int argc, char **argv) {
 
     if (ctx.is_validator == true) {
       if (ctx.current_block->timestamp + BLOCK_SCHEDULE < time(NULL)) {
-        int index = get_next_validator(ctx.current_state, ctx.current_block);
-        validator t = ctx.current_state->validators[index];
-        if (memcmp(t.public_key, ctx.wallet->public_key, 32) == 0) {
+        validator *val =
+            get_next_validator(ctx.current_state, ctx.current_block);
+        if (memcmp(val->public_key, ctx.wallet->public_key, 32) == 0) {
           block *new_block = malloc(sizeof(block));
           *new_block = build_next_block(ctx.current_block, &ctx);
           unsigned char prev_hash[32];

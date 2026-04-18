@@ -2,12 +2,12 @@ add_library(coin_protocol SHARED
   src/message.c
   src/block.c
   src/wallet.c
+  src/state.c
   src/transaction.c
   src/validation.c
   src/util.c 
   src/merkle.c
   src/genesis.c
-  src/protocol.c
 )
 
 target_include_directories(coin_protocol PUBLIC

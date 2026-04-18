@@ -6,6 +6,7 @@ enum command_type {
   BALNCE,
   SEND,
   STAKE,
+  WITHDRAW,
   PEERS,
 };
 

@@ -25,6 +25,14 @@ typedef struct {
   unsigned char *end;
 } Writer;
 
+typedef struct {
+  uint32_t IP;
+  uint32_t buff_len;
+  unsigned char buff[20000];
+  int peer_fd;
+  uint16_t PORT;
+} Peer;
+
 int write_bytes(Writer *r, void *in, size_t n);
 int read_bytes(Reader *r, void *out, size_t n);
 void print_public_key(unsigned char *public_key);

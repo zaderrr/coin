@@ -1,4 +1,5 @@
 #include "block.h"
+#include "state.h"
 int validate_funds(account *account, state *current_state, transaction *tx);
 int validate_tx(transaction *tx, state *state, account *from, block *block);
 int verify_transaction(unsigned char *payload, transaction *tx);

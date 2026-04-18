@@ -1,6 +1,5 @@
 #include "command.h"
 #include "wallet.h"
-#include <protocol.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/poll.h>
