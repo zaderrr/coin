@@ -30,11 +30,12 @@ typedef struct {
 typedef struct {
   bool is_validator;
   uint16_t port;
+  unsigned char *wallet_loc;
 } config;
 
 block build_next_block(block *previous_block, node_ctx *ctx);
 int read_args(int count, char **args, config *out);
-int init_validator(node_ctx *ctx);
+int init_validator(node_ctx *ctx, unsigned char *wallet_loc);
 node_ctx init_context();
 void display_state(node_ctx *ctx);
 #endif

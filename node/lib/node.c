@@ -137,6 +137,8 @@ int read_args(int count, char **args, config *out) {
   for (int i = 0; i < count; i++) {
     if (strcmp(args[i], "--validate") == 0) {
       cfg.is_validator = true;
+    } else if (strcmp(args[i], "--wallet") == 0) {
+      cfg.wallet_loc = (unsigned char *)args[i + 1];
     } else if (strcmp(args[i], "--port") == 0) {
       char *endptr = NULL;
       uint64_t arg_port = strtoul(args[i + 1], &endptr, 10);
@@ -194,16 +196,21 @@ int get_password(char *password) {
   return 1;
 }
 
-int get_wallet(Wallet *wallet) {
-  char walletLoc[512];
-  const char *home = getenv("HOME");
-  if (!home) {
-    fprintf(stderr, "HOME not set\n");
-    return 1;
+int get_wallet(Wallet *wallet, unsigned char *wallet_loc) {
+  if (wallet_loc == NULL) {
+    char walletLoc[512];
+    const char *home = getenv("HOME");
+    if (!home) {
+      fprintf(stderr, "HOME not set\n");
+      return 1;
+    }
+    snprintf(walletLoc, sizeof walletLoc, "%s/Documents/keys/wallet.coin",
+             home);
+    wallet_loc = (unsigned char *)walletLoc;
   }
-  snprintf(walletLoc, sizeof walletLoc, "%s/Documents/keys/wallet.coin", home);
+
   FILE *fptr;
-  fptr = fopen(walletLoc, "rb");
+  fptr = fopen(wallet_loc, "rb");
   char password[128];
   get_password(password);
   if (fptr == NULL) {
@@ -214,10 +221,10 @@ int get_wallet(Wallet *wallet) {
   }
   return 0;
 }
-int init_validator(node_ctx *ctx) {
+int init_validator(node_ctx *ctx, unsigned char *wallet_loc) {
   ctx->is_validator = true;
   // get validator key
   Wallet *wallet = malloc(sizeof(Wallet));
   ctx->wallet = wallet;
-  return get_wallet(wallet);
+  return get_wallet(wallet, wallet_loc);
 }

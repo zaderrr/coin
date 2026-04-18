@@ -19,14 +19,14 @@ int main(int argc, char **argv) {
       return 1;
     }
   }
-
   // build chain
   block *gen_block = calloc(1, sizeof(block));
   node_ctx ctx = init_context();
   ctx.current_block = gen_block;
   if (cfg.is_validator) {
-    if (init_validator(&ctx) == 1) {
+    if (init_validator(&ctx, cfg.wallet_loc) == 1) {
       printf("Error initializing validator...");
+      free(cfg.wallet_loc);
       return 1;
     }
   }

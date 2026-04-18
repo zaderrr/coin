@@ -140,9 +140,9 @@ int update_state(state *current_state, transaction *tx) {
       if (create_new_validator(current_state, tx) == 1) {
         return 1;
       }
+      val = get_validator(current_state, tx->from);
     }
     account *from = get_account(current_state, tx->from);
-    val = get_validator(current_state, tx->from);
     from->balance -= tx->amount;
     from->nonce++;
     val->stake += tx->amount;
