@@ -1,11 +1,33 @@
 #include "block.h"
 #include "ed25519.h"
 #include "protocol.h"
+#include "transaction.h"
 #include <stdio.h>
+#include <string.h>
+
+int validate_funds(account *account, state *current_state, transaction *tx) {
+  if (account->balance < tx->amount) {
+    printf("Insufficent balance\n");
+    return 1;
+  }
+  return 0;
+}
 
 int valid_nonce(account *account, transaction *tx) {
   if (account->nonce != tx->nonce) {
     printf("Invalid nonce\n");
+    return 1;
+  }
+  return 0;
+}
+
+int validate_stake_deposit(transaction *tx, state *state, account *from) {
+  unsigned char null_addr[32] = {0};
+  if (memcmp(tx->to, null_addr, 32) != 0) {
+    return 1;
+  }
+
+  if (validate_funds(from, state, tx) == 1) {
     return 1;
   }
   return 0;
@@ -16,7 +38,11 @@ int validate_tx(transaction *tx, state *state, account *from, block *block) {
     return 1;
   }
   // Check account can withdraw (validator)
-  if (tx->type == TX_STAKE_WITHDRAW) {
+  if (tx->type == TX_STAKE_DEPOSIT) {
+    if (validate_stake_deposit(tx, state, from) == 1) {
+      return 1;
+    }
+  } else if (tx->type == TX_STAKE_WITHDRAW) {
     validator *validator = get_validator(state, tx->from);
     if (validator == NULL) {
       return 1;
@@ -27,7 +53,6 @@ int validate_tx(transaction *tx, state *state, account *from, block *block) {
     }
 
   } else if (tx->type == TX_TRANSFER) {
-    // Validate transfer, balance + nonce
     if (validate_funds(from, state, tx) == 1) {
       return 1;
     }
@@ -37,15 +62,6 @@ int validate_tx(transaction *tx, state *state, account *from, block *block) {
 
 int verify_transaction(unsigned char *payload, transaction *tx) {
   return ed25519_verify(tx->signature, payload, 81, tx->from);
-}
-
-int validate_funds(account *account, state *current_state, transaction *tx) {
-  if (account->balance < tx->amount) {
-    printf("Insufficent balance\n");
-    return 1;
-  }
-
-  return 0;
 }
 
 int can_wirthdraw_stake(account *account, validator *val, transaction *tx,

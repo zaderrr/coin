@@ -37,18 +37,18 @@ int sign_transaction(transaction *tx, Wallet *wallet, unsigned char *buff) {
   return 0;
 }
 
-// Create transaction from args
-transaction create_tx(char **args, Wallet *wallet) {
-  uint64_t amount = strtoull(args[0], NULL, 10);
+// Create transaction
+transaction create_tx(unsigned char *to, Wallet *wallet, uint64_t amount,
+                      tx_type type) {
 
   transaction tx = {0};
   tx.amount = amount;
-  tx.type = TX_TRANSFER;
+  tx.type = type;
 
   // TODO: Sync nonce from server
   tx.nonce = wallet->nonce;
   memcpy(tx.from, wallet->public_key, 32);
-  memcpy(tx.to, args[1], 32);
+  memcpy(tx.to, to, 32);
 
   return tx;
 }
@@ -68,8 +68,9 @@ int deserialize_tx(Reader *r, transaction *out) {
   return 0;
 }
 
-int send_transaction(char **args, int fd, Wallet *wallet) {
-  transaction tx = create_tx(args, wallet);
+int send_transaction(unsigned char *to, uint64_t amount, int fd, Wallet *wallet,
+                     tx_type type) {
+  transaction tx = create_tx(to, wallet, amount, type);
   unsigned char tx_buff[TX_SIZE];
   // Write tx to buffer + sign it.
   Writer w = {tx_buff, tx_buff + TX_SIZE};
@@ -79,8 +80,6 @@ int send_transaction(char **args, int fd, Wallet *wallet) {
   unsigned char buff[TX_SIZE + 5];
   create_message(TX_SUBMIT, TX_SIZE, tx_buff, buff);
   send_message(sizeof(buff), buff, fd);
-  free(args[0]);
-  free(args[1]);
   wallet->nonce++;
   return 0;
 }

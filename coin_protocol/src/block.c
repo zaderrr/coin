@@ -78,6 +78,27 @@ int verify_block(unsigned char *buff, block *block, int size) {
   return ed25519_verify(block->signature, buff, size - 64, block->proposer);
 }
 
+int create_new_validator(state *current_state, transaction *tx) {
+  current_state->validators_count++;
+  int count = current_state->validators_count;
+  validator *new_validators =
+      realloc(current_state->validators, sizeof(validator) * count);
+
+  validator new = {0};
+  new.block_joined = 0;
+  memcpy(new.public_key, tx->from, 32);
+
+  if (new_validators == NULL) {
+    current_state->validators_count--;
+    printf("Failed to add validator\n");
+    return 1;
+  }
+
+  current_state->validators = new_validators;
+  current_state->validators[current_state->validators_count - 1] = new;
+  return 0;
+}
+
 int create_new_account(state *current_state, transaction *tx) {
   current_state->accounts_count++;
   int count = current_state->accounts_count;
@@ -113,6 +134,18 @@ int update_state(state *current_state, transaction *tx) {
     to->balance += tx->amount;
     from->balance -= tx->amount;
     from->nonce++;
+  } else if (tx->type == TX_STAKE_DEPOSIT) {
+    validator *val = get_validator(current_state, tx->from);
+    if (val == NULL) {
+      if (create_new_validator(current_state, tx) == 1) {
+        return 1;
+      }
+    }
+    account *from = get_account(current_state, tx->from);
+    val = get_validator(current_state, tx->from);
+    from->balance -= tx->amount;
+    from->nonce++;
+    val->stake += tx->amount;
   }
   return 0;
 }

@@ -12,7 +12,7 @@ enum command_type {
 typedef struct {
   enum command_type type;
   int arg_count;
-  char **args;
+  unsigned char **args;
 } command;
 
 void execute_command(command *cmd, int fd, Wallet *wallet);

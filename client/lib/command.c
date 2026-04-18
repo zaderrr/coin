@@ -14,6 +14,26 @@ int handle_command(char *cmd, command *command) {
     return 1;
   if (strncmp(cmd, "balance", 7) == 0) {
     return 1;
+  } else if (strcmp(token, "stake") == 0) {
+    char *amount_str = strtok(NULL, " \n");
+    if (!amount_str) {
+      printf("Usage: stake <amount>\n");
+      return 1;
+    }
+
+    char *endptr;
+    uint64_t amount = strtoull(amount_str, &endptr, 10);
+
+    if (*endptr != '\0') {
+      printf("Amount is not a valid number\n");
+      return 1;
+    }
+
+    command->type = STAKE;
+    command->arg_count = 1;
+    command->args = malloc(sizeof(char *) * 1);
+    command->args[0] = strdup(amount_str);
+    return 0;
   } else if (strcmp(token, "send") == 0) {
     char *amount_str = strtok(NULL, " \n");
     char *address_str = strtok(NULL, " \n");
@@ -66,7 +86,14 @@ int listen_for_command(struct pollfd *infd, command *cmd) {
 
 void execute_command(command *cmd, int fd, Wallet *wallet) {
   if (cmd->type == SEND) {
-    send_transaction(cmd->args, fd, wallet);
+    uint64_t amount = strtoull((const char *)cmd->args[0], NULL, 10);
+    send_transaction(cmd->args[1], amount, fd, wallet, TX_TRANSFER);
+    free(cmd->args[0]);
+    free(cmd->args[1]);
   } else if (cmd->type == STAKE) {
+    uint64_t amount = strtoull((const char *)cmd->args[0], NULL, 10);
+    unsigned char null_addr[32] = {0};
+    send_transaction(null_addr, amount, fd, wallet, TX_STAKE_DEPOSIT);
+    free(cmd->args[0]);
   }
 }

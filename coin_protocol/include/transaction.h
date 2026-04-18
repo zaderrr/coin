@@ -24,7 +24,8 @@ typedef struct {
 // +4 for padding, + 3 for type->char
 _Static_assert(sizeof(transaction) - 7 == TX_SIZE, "struct size mismatch");
 
-int send_transaction(char **args, int fd, Wallet *wallet);
+int send_transaction(unsigned char *to, uint64_t amount, int fd, Wallet *wallet,
+                     tx_type type);
 int deserialize_tx(Reader *reader, transaction *out);
 int serialize_tx(Writer *writer, transaction *tx, bool include_signature);
 #endif

@@ -30,10 +30,9 @@ account *get_account(state *current_state, unsigned char public_key[32]) {
 }
 
 validator *get_validator(state *current_state, unsigned char public_key[32]) {
-  validator *validators = current_state->validators;
   for (int i = 0; i < current_state->validators_count; i++) {
-    if (memcmp(validators[i].public_key, public_key, 32) == 0) {
-      return &validators[i];
+    if (memcmp(current_state->validators[i].public_key, public_key, 32) == 0) {
+      return &current_state->validators[i];
     }
   }
   return NULL;
