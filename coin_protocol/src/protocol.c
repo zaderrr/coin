@@ -21,10 +21,9 @@ int get_next_validator(state *current_state, block *block) {
 }
 
 account *get_account(state *current_state, unsigned char public_key[32]) {
-  account *accounts = current_state->accounts;
   for (int i = 0; i < current_state->accounts_count; i++) {
-    if (memcmp(accounts[i].public_key, public_key, 32) == 0) {
-      return &accounts[i];
+    if (memcmp(current_state->accounts[i].public_key, public_key, 32) == 0) {
+      return &current_state->accounts[i];
     }
   }
   return NULL;

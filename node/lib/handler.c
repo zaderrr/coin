@@ -45,30 +45,29 @@ int handle_handshake(unsigned char *buff, struct pollfd client_fd,
 
 int handle_tx(unsigned char *payload, node_ctx *ctx) {
   Reader r = {payload, payload + TX_SIZE};
-  transaction *tx = malloc(sizeof(transaction));
-  deserialize_tx(&r, tx);
+  transaction tx = {0};
+  if (deserialize_tx(&r, &tx) != 0) {
+    return 1;
+  }
   // TODO: Add validation for received data...
-  if (verify_transaction(payload, tx) != 1) {
-    printf("Invalid signature.\n");
+  if (verify_transaction(payload, &tx) != 1) {
     return 1;
   }
   if (ctx->mempool->tx_count >= ctx->mempool->capacity) {
-    printf("Mempool full\n");
     return 1;
   }
   // Check we don't already have this transaction
-  if (mempool_contains(ctx->mempool, tx) == 0) {
-    printf("We already have this tx...\n");
+  if (mempool_contains(ctx->mempool, &tx) == 0) {
     return 1;
   }
-  account *from = get_account(ctx->current_state, tx->from);
-  if (validate_tx(tx, ctx->current_state, from, ctx->current_block) == 1) {
+  account *from = get_account(ctx->current_state, tx.from);
+  if (validate_tx(&tx, ctx->current_state, from, ctx->current_block) == 1) {
     return 1;
   }
   int mempool_count = ctx->mempool->tx_count;
-  ctx->mempool->tx[mempool_count] = *tx;
+  ctx->mempool->tx[mempool_count] = tx;
   ctx->mempool->tx_count++;
-  broadcast_tx(ctx, tx);
+  broadcast_tx(ctx, &tx);
   return 0;
 }
 
@@ -86,6 +85,7 @@ int free_block(block *block) {
 int handle_block_proposal(unsigned char *payload, node_ctx *ctx, int length) {
   block *new_block = malloc(sizeof(block));
   if (deserialize_block(payload, length, new_block) == 1) {
+    free_block(new_block);
     return 1;
   }
   if (verify_block(payload, new_block, length) != 1) {
@@ -101,7 +101,6 @@ int handle_block_proposal(unsigned char *payload, node_ctx *ctx, int length) {
   unsigned char send_buff[length + 5];
   create_message(BLOCK_PROPOSAL, length, payload, send_buff);
   broadcast_message(send_buff, length + 5, ctx->peer_manager);
-  printf("Valid! sent to peers\n");
   display_state(ctx);
   return 0;
 }
