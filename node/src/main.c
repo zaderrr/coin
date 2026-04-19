@@ -39,7 +39,6 @@ int main(int argc, char **argv) {
 
   // Start node
   init_network(&ctx, port);
-  int first = 0;
   while (1) {
 
     int new = accept_connections(&ctx);

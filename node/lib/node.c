@@ -31,27 +31,6 @@ int compare_tx(const void *a, const void *b) {
   return 0;
 }
 
-int serialize_block(block *next_block, unsigned char *buff, int size) {
-  uint64_t timestamp = htonll(next_block->timestamp);
-  uint64_t height = htonll(next_block->height);
-  uint32_t tx_count = htonl(next_block->tx_count);
-  Writer w = {buff, buff + size};
-  WRITE_FIELD(&w, height, sizeof(next_block->height));
-  WRITE_FIELD(&w, next_block->prev_hash, sizeof(next_block->prev_hash));
-  WRITE_FIELD(&w, next_block->state_root, sizeof(next_block->state_root));
-  WRITE_FIELD(&w, next_block->validator_root,
-              sizeof(next_block->validator_root));
-  WRITE_FIELD(&w, next_block->tx_root, sizeof(next_block->tx_root));
-  WRITE_FIELD(&w, timestamp, sizeof(next_block->timestamp));
-  WRITE_FIELD(&w, next_block->proposer, sizeof(next_block->proposer));
-  WRITE_FIELD(&w, tx_count, sizeof(next_block->tx_count));
-  for (int i = 0; i < next_block->tx_count; i++) {
-    transaction *tx = &next_block->transactions[i];
-    serialize_tx(&w, tx, true);
-  }
-  return 0;
-}
-
 int broadcast_block(unsigned char *block_buff, int size, PeerManager *pm) {
   unsigned char out_buff[size + 5];
   create_message(BLOCK_PROPOSAL, size, block_buff, out_buff);
@@ -122,7 +101,7 @@ block build_next_block(block *previous_block, node_ctx *ctx) {
   int size =
       32 + 32 + 32 + 32 + 32 + 64 + 8 + 8 + 4 + (next_block.tx_count * TX_SIZE);
   unsigned char serialized_block[size];
-  serialize_block(&next_block, serialized_block, size);
+  serialize_block(&next_block, serialized_block);
 
   sign_block(&next_block, serialized_block, size, ctx->wallet);
 

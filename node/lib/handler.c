@@ -114,3 +114,20 @@ int handle_block_proposal(unsigned char *payload, node_ctx *ctx, int length) {
   display_state(ctx);
   return 0;
 }
+
+int handle_get_block(Message *message, node_ctx *ctx, int fd) {
+  int size = get_block_size(ctx->current_block);
+  unsigned char serialized_block[size];
+  serialize_block(ctx->current_block, serialized_block);
+  unsigned char payload[size + 5];
+  create_message(BLOCK, size, serialized_block, payload);
+  send_message(sizeof(payload), payload, fd);
+  return 0;
+}
+
+int handle_block_received(Message *message) {
+  block recv_block = {0};
+  deserialize_block(message->payload, message->header->payload_len,
+                    &recv_block);
+  return 0;
+}

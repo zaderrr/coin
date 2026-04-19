@@ -27,6 +27,8 @@ int deserialize_block(unsigned char *buff, int length, block *out);
 int sign_block(block *next_block, unsigned char *block_buff, int size,
                Wallet *wallet);
 
+int get_block_size(block *block);
+int serialize_block(block *next_block, unsigned char *buff);
 int verify_block(unsigned char *buff, block *block, int size);
 int validate_block(block *val_block, block *prev_block, state *state);
 #endif

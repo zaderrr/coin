@@ -42,6 +42,43 @@ int hash_block(block *block, unsigned char buff[32]) {
   return 0;
 }
 
+int get_block_size(block *block) {
+  if (block == NULL) {
+    return -1;
+  }
+  int size =
+      32 + 32 + 32 + 32 + 32 + 64 + 8 + 8 + 4 + (block->tx_count * TX_SIZE);
+
+  return size;
+}
+
+int serialize_block(block *next_block, unsigned char *buff) {
+  int size = get_block_size(next_block);
+  if (size == -1) {
+    return 1;
+  }
+  unsigned char serialized_block[size];
+
+  uint64_t timestamp = htonll(next_block->timestamp);
+  uint64_t height = htonll(next_block->height);
+  uint32_t tx_count = htonl(next_block->tx_count);
+  Writer w = {buff, buff + size};
+  WRITE_FIELD(&w, height, sizeof(next_block->height));
+  WRITE_FIELD(&w, next_block->prev_hash, sizeof(next_block->prev_hash));
+  WRITE_FIELD(&w, next_block->state_root, sizeof(next_block->state_root));
+  WRITE_FIELD(&w, next_block->validator_root,
+              sizeof(next_block->validator_root));
+  WRITE_FIELD(&w, next_block->tx_root, sizeof(next_block->tx_root));
+  WRITE_FIELD(&w, timestamp, sizeof(next_block->timestamp));
+  WRITE_FIELD(&w, next_block->proposer, sizeof(next_block->proposer));
+  WRITE_FIELD(&w, tx_count, sizeof(next_block->tx_count));
+  for (int i = 0; i < next_block->tx_count; i++) {
+    transaction *tx = &next_block->transactions[i];
+    serialize_tx(&w, tx, true);
+  }
+  return 0;
+}
+
 int deserialize_block(unsigned char *buff, int length, block *out) {
   block next_block = {0};
   Reader r = {buff, buff + length};

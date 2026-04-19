@@ -4,6 +4,7 @@
 #include "transaction.h"
 #include "util.h"
 #include <arpa/inet.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -109,10 +110,25 @@ struct pollfd start_server(uint16_t port) {
   return fds[0];
 }
 
+int request_block(uint64_t height, PeerManager *pm) {
+  unsigned char message[sizeof(height)];
+  height = htonll(height);
+
+  Writer w = {message, message + sizeof(height)};
+  WRITE_FIELD(&w, height, sizeof(height));
+
+  unsigned char payload[sizeof(height) + 5];
+  create_message(GET_BLOCK, sizeof(height), message, payload);
+  // TODO: Add multi-node block requesting
+  // Requests only from first peer.
+  send_message(sizeof(payload), payload, pm->peers[1].peer_fd);
+  return 0;
+}
+
 int init_network(node_ctx *ctx, uint16_t port) {
   struct pollfd server_fd = start_server(port);
   connect_to_peers(ctx, server_fd, port);
-
+  request_block(1, ctx->peer_manager);
   return 0;
 }
 
@@ -174,6 +190,15 @@ int handle_decoded(Message *message, struct pollfd client_fd, node_ctx *ctx) {
   }
   case BLOCK_PROPOSAL: {
     handle_block_proposal(message->payload, ctx, message->header->payload_len);
+    break;
+  }
+  case GET_BLOCK: {
+    handle_get_block(message, ctx, client_fd.fd);
+    break;
+  }
+  case BLOCK: {
+    handle_block_received(message);
+    break;
   }
   default: {
     break;
