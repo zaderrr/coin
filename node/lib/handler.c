@@ -10,13 +10,6 @@
 #include <string.h>
 #include <sys/socket.h>
 
-unsigned char *get_public_key(unsigned char *buff) {
-  unsigned char *public_key;
-  public_key = malloc(32);
-  memcpy(public_key, buff, 32);
-  return public_key;
-}
-
 int mempool_contains(mempool *pool, transaction *tx) {
   for (int i = 0; i < pool->tx_count; i++) {
     if (memcmp(pool->tx[i].signature, tx->signature, 64) == 0) {
@@ -28,19 +21,35 @@ int mempool_contains(mempool *pool, transaction *tx) {
 
 int handle_handshake(unsigned char *buff, struct pollfd client_fd,
                      state *current_state) {
-  unsigned char *public_key = get_public_key(buff);
-  unsigned char payload[8];
+  unsigned char public_key[32];
+
+  Reader r = {buff, buff + 32};
+  read_bytes(&r, public_key, 32);
+
+  unsigned char payload[16];
+
   // Write response + send
-  uint64_t balance = get_balance(public_key, current_state);
-
+  account *acc = get_account(current_state, public_key);
+  if (acc == NULL) {
+    printf("Account doesn't exist\n");
+    return 1;
+  }
+  uint64_t balance = acc->balance;
+  uint64_t nonce = acc->nonce;
   balance = htonll(balance);
-
+  nonce = htonll(nonce);
   // Write balance to response
-  memcpy(payload, &balance, 8);
-  unsigned char res[8 + 5];
-  create_message(INIT_BALANCE, sizeof(uint64_t), payload, res);
+
+  Writer w = {payload, payload + (sizeof(uint64_t) * 2)};
+
+  WRITE_FIELD(&w, balance, sizeof(uint64_t));
+  WRITE_FIELD(&w, nonce, sizeof(uint64_t));
+
+  unsigned char res[16 + 5];
+  create_message(INIT_BALANCE, sizeof(uint64_t) * 2, payload, res);
+
   send_message(sizeof(res), res, client_fd.fd);
-  free(public_key);
+
   return 0;
 }
 

@@ -215,7 +215,6 @@ int process_messages(Peer *peer, struct pollfd fd, node_ctx *ctx) {
 
     if (peer->buff_len < msg_size)
       break;
-
     Message *message = malloc(sizeof(Message));
     read_header(peer->buff, message);
     decode_message(peer->buff, &message);

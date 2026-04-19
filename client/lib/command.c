@@ -1,4 +1,6 @@
 #include "command.h"
+#include "message.h"
+#include "network.h"
 #include "transaction.h"
 #include "wallet.h"
 #include <ctype.h>
@@ -42,8 +44,10 @@ int handle_command(char *cmd, command *command) {
   char *token = strtok(cmd, " \n");
   if (!token)
     return 1;
-  if (strncmp(cmd, "balance", 7) == 0) {
-    return 1;
+  if (strcmp(token, "balance") == 0) {
+    command->type = BALANCE;
+    command->arg_count = 0;
+    return 0;
   } else if (strcmp(token, "withdraw") == 0) {
     return get_stake_command(cmd, command, WITHDRAW);
   } else if (strcmp(token, "stake") == 0) {
@@ -111,5 +115,7 @@ void execute_command(command *cmd, int fd, Wallet *wallet) {
     }
     send_transaction(null_addr, amount, fd, wallet, type);
     free(cmd->args[0]);
+  } else if (cmd->type == BALANCE) {
+    send_balance_request(fd, wallet);
   }
 }

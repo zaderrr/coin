@@ -40,7 +40,7 @@ int main(int argc, char *args[]) {
   printf("Wallet: ");
   print_public_key(wallet->public_key);
   get_peers(&peers);
-  int client_fd = connect_to_node(peers[0], wallet->public_key);
+  int client_fd = connect_to_node(&peers[0]);
   struct pollfd fds[2];
   fds[0].fd = client_fd;
   fds[0].events = POLLIN;

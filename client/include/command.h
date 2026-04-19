@@ -3,7 +3,7 @@
 #ifndef CLIENT_COMMAND_H
 #define CLIENT_COMMAND_H
 enum command_type {
-  BALNCE,
+  BALANCE,
   SEND,
   STAKE,
   WITHDRAW,
