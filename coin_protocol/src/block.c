@@ -117,10 +117,6 @@ int validate_roots(block *val_block, state *state) {
 
   build_accounts_hash(state->accounts, account_merkle, state->accounts_count);
   if (memcmp(account_merkle, val_block->state_root, 32) != 0) {
-    printf("Calculated: ");
-    print_public_key(account_merkle);
-    printf("Received: ");
-    print_public_key(val_block->state_root);
     printf("State hash does not match\n");
     return 0;
   }

@@ -2,7 +2,7 @@
 #include "merkle.h"
 #include "state.h"
 #include <stdlib.h>
-#include <string.h>
+
 block build_genesis(account *accounts, validator *validators) {
   block genesis = {
       .height = 0,
@@ -14,8 +14,6 @@ block build_genesis(account *accounts, validator *validators) {
       .signature = {0},
       .tx_root = {0},
   };
-  size_t acc_size = 32 + 8 + 8;
-  size_t val_size = 32 + 8;
   build_accounts_hash(accounts, genesis.state_root, 1);
   build_validators_hash(validators, genesis.validator_root, 1);
   return genesis;
