@@ -122,16 +122,14 @@ int request_missing_blocks(node_ctx *ctx) {
   if (num_blocks == 0) {
     return 0;
   }
+  // Num blocks + block nums...
   unsigned char block_heights[sizeof(uint64_t) * (num_blocks + 1)];
   int index = 1;
-  printf("Need %lu blocks\n", num_blocks);
   Writer w = {block_heights, block_heights + sizeof(block_heights)};
   num_blocks = htonll(num_blocks);
   WRITE_FIELD(&w, num_blocks, sizeof(num_blocks));
   for (int i = ctx->current_block->height + 1; i <= ctx->target_height; i++) {
-    if (index > 5) {
-      break;
-    }
+
     uint64_t net_height = htonll(i);
     WRITE_FIELD(&w, net_height, sizeof(uint64_t));
     index++;
@@ -264,7 +262,7 @@ int remove_peer(PeerManager *pm, uint32_t *count, int *index) {
 }
 
 int read_buffer(Peer *peer, int fd) {
-  size_t space = 2048 - peer->buff_len;
+  size_t space = 20000 - peer->buff_len;
   if (space == 0)
     return 0;
   ssize_t n = recv(fd, peer->buff + peer->buff_len, space, 0);
@@ -294,7 +292,6 @@ int process_messages(Peer *peer, struct pollfd fd, node_ctx *ctx) {
     free(message->payload);
     free(message->header);
     free(message);
-
     // Move remaing bytes to start of buffer
     peer->buff_len -= msg_size;
     memmove(peer->buff, peer->buff + msg_size, peer->buff_len);

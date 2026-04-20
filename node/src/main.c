@@ -9,8 +9,8 @@
 #include <string.h>
 #include <time.h>
 
-#define BLOCK_SCHEDULE 10
-#define QUIESCENCE_TIMEOUT 10
+#define BLOCK_SCHEDULE 5
+#define QUIESCENCE_TIMEOUT 2
 
 int main(int argc, char **argv) {
   // Get config
@@ -56,6 +56,9 @@ int main(int argc, char **argv) {
   while (1) {
     int new = accept_connections(&ctx);
     if (ctx.state == INIT) {
+      ctx.sync = calloc(1, sizeof(sync_ctx));
+      ctx.sync->confirming = false;
+      ctx.sync->last_progress = (uint64_t)time(NULL);
       request_current_height(ctx.peer_manager);
       ctx.state = SYNCING;
       last_progress = (uint64_t)time(NULL);
@@ -63,25 +66,35 @@ int main(int argc, char **argv) {
       continue;
     } else if (ctx.state == SYNCING) {
       uint64_t height_before = ctx.current_block->height;
-      int responses_before = peers_responded;
 
       listen_for_message(&ctx);
+
       if (ctx.target_height > last_received_height) {
         peers_responded = 1;
         last_received_height = ctx.target_height;
       }
 
+      if (ctx.target_height == ctx.current_block->height &&
+          ctx.target_height != 0 && ctx.sync->confirming == false) {
+        request_current_height(ctx.peer_manager);
+        ctx.sync->confirming = true;
+      }
+
+      if (ctx.target_height == ctx.current_block->height &&
+          ctx.target_height != 0 && ctx.sync->confirming == true &&
+          ctx.sync->tip_confirmations >= 1) {
+        ctx.state = READY;
+        printf("Synced...\n");
+      }
+
       uint64_t silence = (uint64_t)time(NULL) - last_progress;
+
       if (silence > QUIESCENCE_TIMEOUT) {
         if (peers_responded == 0) {
           ctx.state = READY;
-          printf("No response, im building\n");
-        } else if (ctx.current_block->height >= ctx.target_height) {
-          printf("Reached height\n");
-          ctx.state = READY;
+          printf("No response from peers\n");
         } else {
           request_missing_blocks(&ctx);
-          printf("getting missing blocks\n");
           last_progress = (uint64_t)time(NULL);
         }
       }

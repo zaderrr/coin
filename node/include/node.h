@@ -38,6 +38,15 @@ typedef struct {
 } chain;
 
 typedef struct {
+  uint64_t last_progress;
+  uint64_t last_received_height;
+  int tip_confirmations;
+  Peer confirming_peers[5];
+  bool confirming;
+  int confirming_peer_count;
+} sync_ctx;
+
+typedef struct {
   state *current_state;
   PeerManager *peer_manager;
   mempool *mempool;
@@ -47,6 +56,7 @@ typedef struct {
   node_state state;
   uint64_t target_height;
   chain *chain;
+  sync_ctx *sync;
 } node_ctx;
 
 typedef struct {

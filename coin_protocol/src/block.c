@@ -12,7 +12,6 @@
 
 int sign_block(block *next_block, unsigned char *block_buff, int size,
                Wallet *wallet) {
-  printf("Signing %d bytes\n", size);
   ed25519_sign(next_block->signature, block_buff, size - 64, wallet->public_key,
                wallet->private_key);
   memcpy(block_buff + (size - 64), next_block->signature, 64);

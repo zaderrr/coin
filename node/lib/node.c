@@ -171,6 +171,7 @@ int add_node(node_ctx *ctx, block *next_block) {
 }
 
 void display_state(node_ctx *ctx) {
+  clear_term();
   printf("Accounts: %u\n", ctx->current_state->accounts_count);
   for (int i = 0; i < ctx->current_state->accounts_count; i++) {
     format_pub(ctx->current_state->accounts[i].public_key);
