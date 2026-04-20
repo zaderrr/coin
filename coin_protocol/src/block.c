@@ -12,6 +12,7 @@
 
 int sign_block(block *next_block, unsigned char *block_buff, int size,
                Wallet *wallet) {
+  printf("Signing %d bytes\n", size);
   ed25519_sign(next_block->signature, block_buff, size - 64, wallet->public_key,
                wallet->private_key);
   memcpy(block_buff + (size - 64), next_block->signature, 64);
@@ -52,7 +53,8 @@ int get_block_size(block *block) {
   return size;
 }
 
-int serialize_block(block *next_block, unsigned char *buff) {
+int serialize_block(block *next_block, unsigned char *buff,
+                    bool include_signature) {
   int size = get_block_size(next_block);
   if (size == -1) {
     return 1;
@@ -75,6 +77,10 @@ int serialize_block(block *next_block, unsigned char *buff) {
   for (int i = 0; i < next_block->tx_count; i++) {
     transaction *tx = &next_block->transactions[i];
     serialize_tx(&w, tx, true);
+  }
+
+  if (include_signature == true) {
+    WRITE_FIELD(&w, next_block->signature, sizeof(next_block->signature));
   }
   return 0;
 }
@@ -166,6 +172,7 @@ int validate_roots(block *val_block, state *state) {
 }
 
 int validate_block(block *val_block, block *prev_block, state *state) {
+
   validator *val = get_next_validator(state, prev_block);
   if (memcmp(val_block->proposer, val->public_key, 32) != 0) {
     return 0;

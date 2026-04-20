@@ -3,9 +3,7 @@
 #include <stdint.h>
 
 PeerManager *init_pm();
-
 int request_current_height(PeerManager *pm);
-
 int request_missing_blocks(node_ctx *ctx);
 int broadcast_message(unsigned char *buff, int length, PeerManager *pm);
 int broadcast_tx(node_ctx *ctx, transaction *tx);

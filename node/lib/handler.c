@@ -3,6 +3,7 @@
 #include "message.h"
 #include "node.h"
 #include "server.h"
+#include "state.h"
 #include "transaction.h"
 #include "util.h"
 #include "validation.h"
@@ -172,7 +173,7 @@ int handle_get_blocks(Message *message, node_ctx *ctx, int fd) {
   }
   // Num blocks + Total block size + numblocks * size
   total_size += sizeof(uint64_t) * (num_blocks + 1);
-  unsigned char payload[total_size + (sizeof(uint64_t) * (num_blocks + 1))];
+  unsigned char payload[total_size];
   uint64_t ptr = 0;
 
   // Insert number of blocks in request
@@ -188,7 +189,7 @@ int handle_get_blocks(Message *message, node_ctx *ctx, int fd) {
     memcpy(payload + ptr, &net_size, sizeof(size));
     ptr += sizeof(size);
 
-    serialize_block(requested_blocks[i], payload + ptr);
+    serialize_block(requested_blocks[i], payload + ptr, true);
     ptr += size;
   }
   unsigned char out[total_size + 5];
@@ -209,11 +210,25 @@ int handle_blocks_received(Message *message, node_ctx *ctx) {
     uint64_t size = 0;
     READ_FIELD(&r, size, sizeof(uint64_t));
     size = htonll(size);
+
     unsigned char t[size];
     READ_FIELD(&r, t, size);
-    block x = {0};
-    deserialize_block(t, size, &x);
-    printf("Block height: %lu\n", x.height);
+
+    block *recv_block = malloc(sizeof(block));
+    deserialize_block(t, size, recv_block);
+    if (verify_block(t, recv_block, size) != 1) {
+      free_block(recv_block);
+      printf("Incorrect signature\n");
+      return 1;
+    };
+    if (validate_block(recv_block, ctx->current_block, ctx->current_state) ==
+        0) {
+      printf("Not valid broski\n");
+      return 1;
+    }
+
+    add_node(ctx, recv_block);
+    printf("Valid block %lu\n", recv_block->height);
   }
 
   return 0;
@@ -222,7 +237,7 @@ int handle_blocks_received(Message *message, node_ctx *ctx) {
 int handle_get_block(Message *message, node_ctx *ctx, int fd) {
   int size = get_block_size(ctx->current_block);
   unsigned char serialized_block[size];
-  serialize_block(ctx->current_block, serialized_block);
+  serialize_block(ctx->current_block, serialized_block, true);
   unsigned char payload[size + 5];
   create_message(BLOCK, size, serialized_block, payload);
   send_message(sizeof(payload), payload, fd);

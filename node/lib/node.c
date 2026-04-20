@@ -98,13 +98,10 @@ block build_next_block(block *previous_block, node_ctx *ctx) {
   create_block_transactions(&next_block, ctx->mempool, ctx->current_state);
   build_block_roots(&next_block, ctx->current_state);
 
-  int size =
-      32 + 32 + 32 + 32 + 32 + 64 + 8 + 8 + 4 + (next_block.tx_count * TX_SIZE);
+  int size = get_block_size(&next_block);
   unsigned char serialized_block[size];
-  serialize_block(&next_block, serialized_block);
-
+  serialize_block(&next_block, serialized_block, false);
   sign_block(&next_block, serialized_block, size, ctx->wallet);
-
   broadcast_block(serialized_block, size, ctx->peer_manager);
 
   ctx->mempool->tx_count = 0;
