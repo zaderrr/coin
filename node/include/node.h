@@ -2,6 +2,7 @@
 #include "state.h"
 #include "stdbool.h"
 #include "wallet.h"
+#include <stdint.h>
 
 #ifndef NODE_H
 #define NODE_H
@@ -18,6 +19,24 @@ typedef struct {
   struct pollfd *fds;
 } PeerManager;
 
+typedef enum {
+  INIT,
+  READY,
+  SYNCING,
+} node_state;
+
+typedef struct chain_node {
+  struct chain_node *next_node;
+  struct chain_node *previous_node;
+  block *block;
+} chain_node;
+
+typedef struct {
+  chain_node *start;
+  chain_node *end;
+  uint64_t count;
+} chain;
+
 typedef struct {
   state *current_state;
   PeerManager *peer_manager;
@@ -25,6 +44,9 @@ typedef struct {
   Wallet *wallet;
   bool is_validator;
   block *current_block;
+  node_state state;
+  uint64_t target_height;
+  chain *chain;
 } node_ctx;
 
 typedef struct {
@@ -37,5 +59,6 @@ block build_next_block(block *previous_block, node_ctx *ctx);
 int read_args(int count, char **args, config *out);
 int init_validator(node_ctx *ctx, unsigned char *wallet_loc);
 node_ctx init_context();
+int add_node(node_ctx *ctx, block *next_block);
 void display_state(node_ctx *ctx);
 #endif

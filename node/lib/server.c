@@ -110,6 +110,38 @@ struct pollfd start_server(uint16_t port) {
   return fds[0];
 }
 
+int request_current_height(PeerManager *pm) {
+  unsigned char payload[5];
+  create_message(GET_HEIGHT, 0, payload, payload);
+  send_message(5, payload, pm->peers[1].peer_fd);
+  return 0;
+}
+
+int request_missing_blocks(node_ctx *ctx) {
+  uint64_t num_blocks = ctx->target_height - ctx->current_block->height;
+  if (num_blocks == 0) {
+    return 0;
+  }
+  unsigned char block_heights[sizeof(uint64_t) * (num_blocks + 1)];
+  int index = 1;
+  printf("Need %lu blocks\n", num_blocks);
+  Writer w = {block_heights, block_heights + sizeof(block_heights)};
+  num_blocks = htonll(num_blocks);
+  WRITE_FIELD(&w, num_blocks, sizeof(num_blocks));
+  for (int i = ctx->current_block->height + 1; i <= ctx->target_height; i++) {
+    if (index > 5) {
+      break;
+    }
+    uint64_t net_height = htonll(i);
+    WRITE_FIELD(&w, net_height, sizeof(uint64_t));
+    index++;
+  }
+  unsigned char payload[sizeof(block_heights) + +5];
+  create_message(GET_BLOCKS, sizeof(block_heights), block_heights, payload);
+  send_message(sizeof(payload), payload, ctx->peer_manager->peers[1].peer_fd);
+  return 0;
+}
+
 int request_block(uint64_t height, PeerManager *pm) {
   unsigned char message[sizeof(height)];
   height = htonll(height);
@@ -128,7 +160,6 @@ int request_block(uint64_t height, PeerManager *pm) {
 int init_network(node_ctx *ctx, uint16_t port) {
   struct pollfd server_fd = start_server(port);
   connect_to_peers(ctx, server_fd, port);
-  request_block(1, ctx->peer_manager);
   return 0;
 }
 
@@ -196,8 +227,24 @@ int handle_decoded(Message *message, struct pollfd client_fd, node_ctx *ctx) {
     handle_get_block(message, ctx, client_fd.fd);
     break;
   }
+  case GET_BLOCKS: {
+    handle_get_blocks(message, ctx, client_fd.fd);
+    break;
+  }
+  case GET_HEIGHT: {
+    handle_get_height(message, ctx, client_fd.fd);
+    break;
+  }
+  case HEIGHT: {
+    handle_height_response(message, ctx);
+    break;
+  }
   case BLOCK: {
     handle_block_received(message);
+    break;
+  }
+  case BLOCKS: {
+    handle_blocks_received(message, ctx);
     break;
   }
   default: {

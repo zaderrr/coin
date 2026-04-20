@@ -152,13 +152,28 @@ node_ctx init_context() {
   ctx.current_state = current_state;
   ctx.mempool = malloc(sizeof(mempool));
   ctx.mempool->tx = malloc(sizeof(transaction) * MAX_TX);
+  ctx.state = INIT;
+  ctx.target_height = 0;
   ctx.mempool->capacity = MAX_TX;
   ctx.peer_manager = init_pm();
   return ctx;
 }
 
+int add_node(node_ctx *ctx, block *next_block) {
+  chain_node *next_node = malloc(sizeof(chain_node));
+
+  next_node->next_node = NULL;
+  next_node->block = next_block;
+  next_node->previous_node = ctx->chain->end;
+  ctx->chain->end->next_node = next_node;
+
+  ctx->chain->end = next_node;
+  ctx->current_block = next_block;
+  ctx->chain->count++;
+  return 0;
+}
+
 void display_state(node_ctx *ctx) {
-  clear_term();
   printf("Accounts: %u\n", ctx->current_state->accounts_count);
   for (int i = 0; i < ctx->current_state->accounts_count; i++) {
     format_pub(ctx->current_state->accounts[i].public_key);

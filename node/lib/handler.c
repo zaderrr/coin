@@ -6,9 +6,11 @@
 #include "transaction.h"
 #include "util.h"
 #include "validation.h"
+#include <netinet/in.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 
 int mempool_contains(mempool *pool, transaction *tx) {
   for (int i = 0; i < pool->tx_count; i++) {
@@ -106,12 +108,114 @@ int handle_block_proposal(unsigned char *payload, node_ctx *ctx, int length) {
     free_block(new_block);
     return 1;
   }
-  free_block(ctx->current_block);
-  ctx->current_block = new_block;
+  add_node(ctx, new_block);
   unsigned char send_buff[length + 5];
   create_message(BLOCK_PROPOSAL, length, payload, send_buff);
   broadcast_message(send_buff, length + 5, ctx->peer_manager);
   display_state(ctx);
+  return 0;
+}
+
+int compare_heights(const void *a, const void *b) {
+  uint64_t *height_a = (uint64_t *)a;
+  uint64_t *height_b = (uint64_t *)b;
+  if (*height_a < *height_b)
+    return -1;
+  if (*height_a > *height_b)
+    return 1;
+  return 0;
+}
+
+int handle_get_blocks(Message *message, node_ctx *ctx, int fd) {
+  Reader r = {message->payload,
+              message->payload + message->header->payload_len};
+
+  uint64_t num_blocks = 0;
+
+  READ_FIELD(&r, num_blocks, sizeof(uint64_t));
+  num_blocks = htonll(num_blocks);
+
+  uint64_t block_heights[num_blocks];
+
+  for (int i = 0; i < num_blocks; i++) {
+    READ_FIELD(&r, block_heights[i], sizeof(uint64_t));
+    block_heights[i] = htonll(block_heights[i]);
+    if (block_heights[i] > ctx->current_block->height) {
+      block_heights[i] = 0;
+    }
+  }
+
+  qsort(block_heights, num_blocks, sizeof(uint64_t), compare_heights);
+
+  block *requested_blocks[num_blocks];
+  uint64_t retrieved = 0;
+
+  chain_node *current_node = ctx->chain->start;
+
+  while (retrieved != num_blocks) {
+    if (current_node->block->height == block_heights[retrieved]) {
+      requested_blocks[retrieved] = current_node->block;
+      retrieved++;
+    }
+    if (current_node->next_node == NULL) {
+      printf("height doesn't exist....\n");
+      break;
+    }
+    current_node = current_node->next_node;
+  }
+
+  printf("Found %lu blocks\n", num_blocks);
+
+  uint64_t total_size = 0;
+  for (int i = 0; i < num_blocks; i++) {
+    total_size += get_block_size(requested_blocks[i]);
+  }
+  // Num blocks + Total block size + numblocks * size
+  total_size += sizeof(uint64_t) * (num_blocks + 1);
+  unsigned char payload[total_size + (sizeof(uint64_t) * (num_blocks + 1))];
+  uint64_t ptr = 0;
+
+  // Insert number of blocks in request
+  uint64_t net_num = htonll(num_blocks);
+  memcpy(payload, &net_num, sizeof(num_blocks));
+  ptr += sizeof(num_blocks);
+
+  for (int i = 0; i < num_blocks; i++) {
+    uint64_t size = get_block_size(requested_blocks[i]);
+    uint64_t net_size = htonll(size);
+
+    // Insert block size before block
+    memcpy(payload + ptr, &net_size, sizeof(size));
+    ptr += sizeof(size);
+
+    serialize_block(requested_blocks[i], payload + ptr);
+    ptr += size;
+  }
+  unsigned char out[total_size + 5];
+  create_message(BLOCKS, total_size, payload, out);
+  send_message(sizeof(out), out, fd);
+  return 0;
+}
+
+int handle_blocks_received(Message *message, node_ctx *ctx) {
+  Reader r = {message->payload,
+              message->payload + message->header->payload_len};
+  uint64_t num_blocks = 0;
+  READ_FIELD(&r, num_blocks, sizeof(uint64_t));
+  num_blocks = htonll(num_blocks);
+  printf("Number of blocks returned: %lu\n", num_blocks);
+
+  for (int i = 0; i < num_blocks; i++) {
+    uint64_t size = 0;
+    READ_FIELD(&r, size, sizeof(uint64_t));
+    size = htonll(size);
+    unsigned char t[size];
+    READ_FIELD(&r, t, size);
+    block x = {0};
+    deserialize_block(t, size, &x);
+    printf("Block height: %lu\n", x.height);
+  }
+
   return 0;
 }
 
@@ -122,6 +226,30 @@ int handle_get_block(Message *message, node_ctx *ctx, int fd) {
   unsigned char payload[size + 5];
   create_message(BLOCK, size, serialized_block, payload);
   send_message(sizeof(payload), payload, fd);
+  return 0;
+}
+
+int handle_get_height(Message *message, node_ctx *ctx, int fd) {
+  uint64_t height = htonll(ctx->current_block->height);
+  unsigned char height_data[sizeof(uint64_t)];
+
+  Writer w = {height_data, height_data + sizeof(uint64_t)};
+  WRITE_FIELD(&w, height, sizeof(uint64_t));
+  unsigned char out[sizeof(height_data) + 5];
+
+  create_message(HEIGHT, sizeof(uint64_t), height_data, out);
+  send_message(sizeof(out), out, fd);
+  return 0;
+}
+
+int handle_height_response(Message *message, node_ctx *ctx) {
+  uint64_t height = 0;
+  Reader r = {message->payload,
+              message->payload + message->header->payload_len};
+  READ_FIELD(&r, height, sizeof(uint64_t));
+  height = htonll(height);
+  printf("Current height: %lu\n", height);
+  ctx->target_height = height;
   return 0;
 }
 

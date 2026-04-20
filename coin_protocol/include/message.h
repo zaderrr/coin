@@ -10,7 +10,11 @@ typedef enum MessageType {
   PING,
   TX_SUBMIT,
   GET_BLOCK,
+  GET_BLOCKS,
   BLOCK,
+  BLOCKS,
+  GET_HEIGHT,
+  HEIGHT,
   BLOCK_PROPOSAL
 } MessageType;
 
