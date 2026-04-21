@@ -87,46 +87,39 @@ int verify_transaction(unsigned char *payload, transaction *tx) {
 }
 
 int validate_tx(transaction *tx, state *state, account *from, block *block) {
-  unsigned char tx_buff[TX_SIZE];
-  Writer w = {tx_buff, tx_buff + TX_SIZE};
-  serialize_tx(&w, tx, true);
-
-  // Check account can withdraw (validator)
-  if (tx->type == TX_STAKE_DEPOSIT) {
-    if (verify_transaction(tx_buff, tx) != 1) {
-      printf("Invalid signature!\n");
-      return 1;
-    }
+  switch (tx->type) {
+  case TX_STAKE_DEPOSIT: {
     if (validate_stake_deposit(tx, state, from) == 1) {
       return 1;
     }
-  } else if (tx->type == TX_STAKE_WITHDRAW) {
-    if (verify_transaction(tx_buff, tx) != 1) {
-      printf("Invalid signature!\n");
-      return 1;
-    }
+    break;
+  }
+  case TX_STAKE_WITHDRAW: {
     validator *validator = get_validator(state, tx->from);
     if (validator == NULL) {
       return 1;
     }
-
     if (can_wirthdraw_stake(from, validator, tx, state, block) == 1) {
       return 1;
     }
-
-  } else if (tx->type == TX_TRANSFER) {
-
-    if (verify_transaction(tx_buff, tx) != 1) {
-      printf("Invalid signature!\n");
-      return 1;
-    }
+    break;
+  }
+  case TX_TRANSFER: {
     if (validate_funds(from, state, tx) == 1) {
       return 1;
     }
-  } else if (tx->type == TX_REWARD) {
+    break;
+  }
+  case TX_REWARD: {
     if (validate_reward(state, tx, block) == 1) {
       return 1;
     }
+    break;
+  }
+  default: {
+    printf("Unrecognized transaction type\n");
+    break;
+  }
   }
   return 0;
 }
