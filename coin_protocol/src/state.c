@@ -17,7 +17,7 @@ int make_validator_inactive(validator *val, uint64_t left) {
   if (val == NULL) {
     return 1;
   }
-  val->activity[val->activity_length].left = left;
+  val->activity[val->activity_length - 1].left = left;
   return 0;
 }
 
