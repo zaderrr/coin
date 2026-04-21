@@ -34,7 +34,7 @@ typedef struct state {
 
 account *get_account(state *current_state, unsigned char public_key[32]);
 validator *get_validator(state *current_state, unsigned char public_key[32]);
-validator *get_next_validator(state *current_state, block *block);
+validator *get_validator_for_height(state *current_state, int height);
 bool is_validator_active(validator *validator);
 int update_state(state *current_state, transaction *tx, block *next_block);
 #endif
