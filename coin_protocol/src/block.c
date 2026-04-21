@@ -174,28 +174,19 @@ int validate_block(block *val_block, block *prev_block, state *state) {
 
   validator *val = get_next_validator(state, prev_block);
   if (memcmp(val_block->proposer, val->public_key, 32) != 0) {
-    printf("Wrong proposer\n");
-    print_public_key(val_block->proposer);
-    print_public_key(val->public_key);
     return 0;
   }
   if (validate_previous_hash(val_block, prev_block) == 1) {
-
-    printf("Wrong prev hash\n");
     return 0;
   }
 
   if (val_block->height != prev_block->height + 1) {
-
-    printf("Wrong height\n");
     return 0;
   }
 
   build_new_state(val_block, state);
 
   if (validate_roots(val_block, state) == 0) {
-
-    printf("Wrong roots\n");
     return 0;
   }
 

@@ -63,6 +63,7 @@ int main(int argc, char **argv) {
       ctx.state = SYNCING;
       last_progress = (uint64_t)time(NULL);
       peers_responded = 0;
+      printf("Building chain...\n");
       continue;
     } else if (ctx.state == SYNCING) {
       uint64_t height_before = ctx.current_block->height;
@@ -78,15 +79,19 @@ int main(int argc, char **argv) {
           ctx.target_height != 0 && ctx.sync->confirming == false) {
         request_current_height(ctx.peer_manager);
         ctx.sync->confirming = true;
-      }
-
-      if (ctx.target_height == ctx.current_block->height &&
-          ctx.target_height != 0 && ctx.sync->confirming == true &&
-          ctx.sync->tip_confirmations >= 1) {
+        last_progress = (uint64_t)time(NULL);
+        ctx.sync->tip_confirmations = 0;
+      } else if (ctx.target_height == ctx.current_block->height &&
+                 ctx.target_height != 0 && ctx.sync->confirming == true &&
+                 ctx.sync->tip_confirmations >= 1) {
         ctx.state = READY;
-        printf("Synced...\n");
-      }
 
+        printf("Status: %lu/%lu\n", ctx.current_block->height,
+               ctx.target_height);
+        printf("Synced...\n");
+
+        continue;
+      }
       uint64_t silence = (uint64_t)time(NULL) - last_progress;
 
       if (silence > QUIESCENCE_TIMEOUT) {
@@ -94,9 +99,13 @@ int main(int argc, char **argv) {
           ctx.state = READY;
           printf("No response from peers\n");
         } else {
+
           request_missing_blocks(&ctx);
-          printf("Getting more\n");
+          printf("Status: %lu/%lu\n", ctx.current_block->height,
+                 ctx.target_height);
           last_progress = (uint64_t)time(NULL);
+
+          request_current_height(ctx.peer_manager);
         }
       }
       continue;

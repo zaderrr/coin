@@ -153,7 +153,6 @@ int parse_get_blocks_request(Message *message, uint64_t *block_heights,
     if (h <= ctx->current_block->height) {
       block_heights[valid_count] = h;
       height_valid[valid_count] = true;
-      printf("Requested: %lu\n", block_heights[valid_count]);
       valid_count++;
     }
   }

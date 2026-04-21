@@ -41,7 +41,6 @@ int connect_to_peer(Peer peer) {
 
   if ((status = connect(client_fd, (struct sockaddr *)&serv_addr,
                         sizeof(serv_addr))) < 0) {
-    printf("\nConnection Failed \n");
     return -1;
   }
   return client_fd;
