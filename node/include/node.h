@@ -63,6 +63,7 @@ typedef struct {
   bool is_validator;
   uint16_t port;
   unsigned char *wallet_loc;
+  unsigned char *chain_loc;
 } config;
 
 block build_next_block(block *previous_block, node_ctx *ctx);
@@ -72,5 +73,6 @@ node_ctx init_context();
 int add_node(node_ctx *ctx, block *next_block);
 void display_state(node_ctx *ctx);
 
-int build_chain(node_ctx *ctx);
+bool write_block_to_file(block *to_write);
+int build_chain(node_ctx *ctx, config *cfg);
 #endif

@@ -123,7 +123,7 @@ int handle_block_proposal(unsigned char *payload, node_ctx *ctx, int length) {
   }
 
   add_node(ctx, new_block);
-
+  write_block_to_file(new_block);
   unsigned char send_buff[length + HEADER_SIZE];
   create_message(BLOCK_PROPOSAL, length, payload, send_buff);
   broadcast_message(send_buff, length + HEADER_SIZE, ctx->peer_manager);
@@ -291,6 +291,7 @@ int handle_blocks_received(Message *message, node_ctx *ctx) {
     }
 
     add_node(ctx, recv_block);
+    write_block_to_file(recv_block);
   }
   return 0;
 }
