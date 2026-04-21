@@ -50,20 +50,33 @@ block create_block_header(block *previous_block, node_ctx *ctx) {
   return next_block;
 }
 
-int create_block_transactions(block *next_block, mempool *mempool,
-                              state *current_state) {
-
-  transaction *block_tx = malloc(sizeof(transaction) * mempool->tx_count);
+int create_block_transactions(block *next_block, node_ctx *ctx) {
+  mempool *mempool = ctx->mempool;
+  state *current_state = ctx->current_state;
+  transaction *block_tx = malloc(sizeof(transaction) * (mempool->tx_count + 1));
   int tx_count = 0;
-
   // Sorts by account by nonce
   qsort(mempool->tx, mempool->tx_count, sizeof(transaction), compare_tx);
-
+  // Create reward tx
+  block_tx[tx_count] = create_block_reward(next_block->proposer);
+  update_state(current_state, &block_tx[tx_count], next_block);
+  tx_count++;
   for (int i = 0; i < mempool->tx_count; i++) {
     transaction tx = mempool->tx[i];
     account *account = get_account(current_state, tx.from);
+
+    unsigned char tx_buff[TX_SIZE];
+    Writer w = {tx_buff, tx_buff + TX_SIZE};
+    serialize_tx(&w, &tx, true);
+
+    if (verify_transaction(tx_buff, &tx) != 1) {
+      printf("Invalid signature!\n");
+      return 1;
+    }
+
     if (validate_tx(&tx, current_state, account, next_block) == 0) {
       if (valid_nonce(account, &tx) == 1) {
+        printf("Invalid nonce\n");
         continue;
       }
       block_tx[tx_count] = tx;
@@ -71,6 +84,7 @@ int create_block_transactions(block *next_block, mempool *mempool,
       update_state(current_state, &tx, next_block);
     }
   }
+
   next_block->transactions = block_tx;
   next_block->tx_count = tx_count;
   return 0;
@@ -83,10 +97,12 @@ int build_block_roots(block *next_block, state *current_state) {
 
   unsigned char account_merkle[32];
   unsigned char val_merkle[32];
+
   build_accounts_hash(current_state->accounts, account_merkle,
                       current_state->accounts_count);
   build_validators_hash(current_state->validators, val_merkle,
                         current_state->validators_count);
+
   memcpy(next_block->state_root, account_merkle, 32);
   memcpy(next_block->validator_root, val_merkle, 32);
   return 0;
@@ -94,13 +110,14 @@ int build_block_roots(block *next_block, state *current_state) {
 
 block build_next_block(block *previous_block, node_ctx *ctx) {
   block next_block = create_block_header(previous_block, ctx);
-  create_block_transactions(&next_block, ctx->mempool, ctx->current_state);
+  create_block_transactions(&next_block, ctx);
   build_block_roots(&next_block, ctx->current_state);
 
   int size = get_block_size(&next_block);
   unsigned char serialized_block[size];
   serialize_block(&next_block, serialized_block, false);
   sign_block(&next_block, serialized_block, size, ctx->wallet);
+
   broadcast_block(serialized_block, size, ctx->peer_manager);
 
   ctx->mempool->tx_count = 0;
@@ -177,6 +194,20 @@ void display_state(node_ctx *ctx) {
     printf(" Balance: %lu", ctx->current_state->accounts[i].balance);
     printf(" Nonce: %lu\n", ctx->current_state->accounts[i].nonce);
   }
+  printf("Validators: %u\n", ctx->current_state->validators_count);
+  for (int i = 0; i < ctx->current_state->validators_count; i++) {
+    format_pub(ctx->current_state->validators[i].public_key);
+    printf(" Stake: %lu", ctx->current_state->validators[i].stake);
+    printf(" Joined: %lu",
+           ctx->current_state->validators[i]
+               .activity[ctx->current_state->validators[i].activity_length - 1]
+               .joined);
+    printf(" Left: %lu\n",
+           ctx->current_state->validators[i]
+               .activity[ctx->current_state->validators[i].activity_length - 1]
+               .left);
+  }
+
   printf("Current block: %lu\n", ctx->current_block->height);
 }
 

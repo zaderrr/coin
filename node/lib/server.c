@@ -301,7 +301,7 @@ uint32_t read_payload_len(unsigned char *buff) {
 }
 
 int process_messages(Peer *peer, struct pollfd fd, node_ctx *ctx) {
-  while (peer->buff_len >= 5) {
+  while (peer->buff_len >= HEADER_SIZE) {
     uint32_t payload_len = read_payload_len(peer->buff);
     size_t msg_size = payload_len + HEADER_SIZE;
 

@@ -1,4 +1,5 @@
 #include "transaction.h"
+#include "block.h"
 #include "ed25519.h"
 #include "message.h"
 #include "util.h"
@@ -80,4 +81,13 @@ int send_transaction(unsigned char *to, uint64_t amount, int fd, Wallet *wallet,
   send_message(sizeof(buff), buff, fd);
   wallet->nonce++;
   return 0;
+}
+
+transaction create_block_reward(unsigned char *to) {
+  transaction tx = {0};
+  memcpy(tx.to, to, 32);
+  tx.amount = BLOCK_REWARD;
+  tx.type = TX_REWARD;
+  tx.nonce = 0;
+  return tx;
 }

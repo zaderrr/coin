@@ -172,7 +172,10 @@ int validate_roots(block *val_block, state *state) {
 
 int validate_block(block *val_block, block *prev_block, state *state) {
 
-  validator *val = get_next_validator(state, prev_block);
+  validator *val = get_validator_for_height(state, val_block->height);
+  if (val == NULL) {
+    return 0;
+  }
   if (memcmp(val_block->proposer, val->public_key, 32) != 0) {
     return 0;
   }

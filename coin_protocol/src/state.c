@@ -21,13 +21,7 @@ int make_validator_inactive(validator *val, uint64_t left) {
   return 0;
 }
 
-validator *get_next_validator(state *current_state, block *block) {
-  int height;
-  if (block == NULL) {
-    height = 0;
-  } else {
-    height = block->height + 1;
-  }
+validator *get_validator_for_height(state *current_state, int height) {
   validator *validators[current_state->validators_count];
   int active_vals = 0;
 
@@ -153,12 +147,21 @@ int update_validator_withdrawl(state *current_state, transaction *tx,
   }
 
   if (tx->amount == val->stake) {
-    val->activity[val->activity_length - 1].left = new_block->height;
+    val->activity[val->activity_length - 1].left = new_block->height - 1;
   }
 
   from->balance += tx->amount;
   from->nonce++;
   val->stake -= tx->amount;
+  return 0;
+}
+
+int update_tx_reward(state *current_state, transaction *tx) {
+  validator *to = get_validator(current_state, tx->to);
+  if (to == NULL) {
+    return 1;
+  }
+  to->stake += tx->amount;
   return 0;
 }
 
@@ -186,6 +189,8 @@ int update_state(state *current_state, transaction *tx, block *next_block) {
     update_validator_deposit(current_state, tx, next_block);
   } else if (tx->type == TX_STAKE_WITHDRAW) {
     update_validator_withdrawl(current_state, tx, next_block);
+  } else if (tx->type == TX_REWARD) {
+    update_tx_reward(current_state, tx);
   }
   return 0;
 }

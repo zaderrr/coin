@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #define MIN_VALIDATOR_LENGTH 5
+#define BLOCK_REWARD ((uint64_t)100)
 
 typedef struct state state;
 
