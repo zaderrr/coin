@@ -14,6 +14,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #define MAX_TX 256
 
@@ -286,15 +287,64 @@ bool write_block_to_file(block *to_write) {
     fwrite(&num_blocks, sizeof(int), 1, block_file);
   }
 
+  unsigned char magic[4] = {0x80, 0x08, 0x13, 0x50};
+  // Write magic, size, block, hash at end of file
   fseek(block_file, 0, SEEK_END);
+  fwrite(magic, sizeof(magic), 1, block_file);
   fwrite(&size, sizeof(uint64_t), 1, block_file);
   fwrite(block_bytes, size, 1, block_file);
+  unsigned char hash[32];
+  hash_block(to_write, hash);
+  fwrite(hash, sizeof(hash), 1, block_file);
 
+  // Update number of blocks in file
   num_blocks++;
   fseek(block_file, 0, SEEK_SET);
   fwrite(&num_blocks, sizeof(int), 1, block_file);
-  unsigned char hash[32];
 
+  return true;
+}
+
+bool read_block(int *last_good, block *block_read, node_ctx *ctx) {
+  unsigned char magic[4] = {0};
+  uint64_t block_size = 0;
+
+  fread(magic, sizeof(magic), 1, block_file);
+
+  unsigned char exp_magic[4] = {0x80, 0x08, 0x13, 0x50};
+  if (memcmp(magic, exp_magic, sizeof(exp_magic)) != 0) {
+    return false;
+  }
+
+  fread(&block_size, sizeof(uint64_t), 1, block_file);
+  if (block_size <= 0) {
+    return false;
+  }
+
+  // Read block + hash and compare
+  unsigned char file_block[block_size];
+  fread(file_block, block_size, 1, block_file);
+
+  unsigned char read_hash[32] = {0};
+  fread(read_hash, sizeof(read_hash), 1, block_file);
+
+  deserialize_block(file_block, block_size, block_read);
+
+  unsigned char block_hash[32] = {0};
+  hash_block(block_read, block_hash);
+
+  if (memcmp(block_hash, read_hash, 32) != 0) {
+    return false;
+  }
+
+  // Verify read block
+  if (verify_block(file_block, block_read, block_size) != 1) {
+    return false;
+  }
+
+  if (validate_block(block_read, ctx->current_block, ctx->current_state) != 1) {
+    return false;
+  }
   return true;
 }
 
@@ -302,37 +352,23 @@ bool read_block_file(node_ctx *ctx, config *cfg) {
   if (open_block_file((char *)cfg->chain_loc) == false) {
     return false;
   }
+
   int file_num_blocks = 0;
   fread(&file_num_blocks, sizeof(int), 1, block_file);
 
   num_blocks = file_num_blocks;
+  int last_good = 0;
   for (int i = 0; i < file_num_blocks; i++) {
-    uint64_t block_size = 0;
-
-    fread(&block_size, sizeof(uint64_t), 1, block_file);
-    if (block_size <= 0) {
-      printf("Invalid block size\n");
-      return false;
-    }
-
-    unsigned char file_block[block_size];
-    fread(file_block, block_size, 1, block_file);
-
     block *block_read = malloc(sizeof(block));
-    deserialize_block(file_block, block_size, block_read);
-    if (verify_block(file_block, block_read, block_size) != 1) {
+
+    if (read_block(&last_good, block_read, ctx) == false) {
       free_block(block_read);
-      printf("Problem\n");
-      return 1;
+      ftruncate(fileno(block_file), last_good);
+      break;
     }
 
-    if (validate_block(block_read, ctx->current_block, ctx->current_state) !=
-        1) {
-      printf("invalid\n");
-      free_block(block_read);
-      return 1;
-    }
     add_node(ctx, block_read);
+    last_good = ftell(block_file);
   }
   fflush(block_file);
   return 0;

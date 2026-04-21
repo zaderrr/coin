@@ -169,7 +169,7 @@ int validate_roots(block *val_block, state *state) {
   }
   return 1;
 }
-
+// TODO: Move updating state from this function
 int validate_block(block *val_block, block *prev_block, state *state) {
 
   validator *val = get_validator_for_height(state, val_block->height);
