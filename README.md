@@ -3,7 +3,7 @@
 - [x] Implement validator transaction for joining and leaving
 - [x] Add building chain from peers 
 - [x] Implement validator rewards
-- [ ] Save/Read blocks locally
+- [x] Save/Read blocks locally
 - [ ] Expand building from network to multi-peer
 - [ ] Implement slashing (Invalid blocks/Too long to propose)
 - [ ] Expand building from network to multi-peer
