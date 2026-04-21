@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <sys/poll.h>
 
+#define HEADER_SIZE 5
+
 typedef enum MessageType {
   HANDSHAKE,
   INIT_BALANCE,

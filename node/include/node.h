@@ -71,4 +71,6 @@ int init_validator(node_ctx *ctx, unsigned char *wallet_loc);
 node_ctx init_context();
 int add_node(node_ctx *ctx, block *next_block);
 void display_state(node_ctx *ctx);
+
+int build_chain(node_ctx *ctx);
 #endif

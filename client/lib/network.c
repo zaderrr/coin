@@ -31,13 +31,13 @@ int connect_to_node(Peer *peer) {
 
 int send_balance_request(int fd, Wallet *wallet) {
   unsigned char payload[32] = {0};
-  unsigned char out[32 + 5];
+  unsigned char out[32 + HEADER_SIZE];
 
-  Writer w = {payload, payload + 32};
-  WRITE_FIELD(&w, *wallet->public_key, 32);
+  Writer w = {payload, payload + sizeof(payload)};
+  WRITE_FIELD(&w, *wallet->public_key, sizeof(payload));
 
-  create_message(HANDSHAKE, 32, payload, out);
-  send_message(32 + 5, out, fd);
+  create_message(HANDSHAKE, sizeof(payload), payload, out);
+  send_message(sizeof(payload) + HEADER_SIZE, out, fd);
   return 0;
 }
 

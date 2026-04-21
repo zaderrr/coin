@@ -50,7 +50,7 @@ int handle_handshake(unsigned char *buff, struct pollfd client_fd,
   WRITE_FIELD(&w, balance, sizeof(uint64_t));
   WRITE_FIELD(&w, nonce, sizeof(uint64_t));
 
-  unsigned char res[16 + 5];
+  unsigned char res[16 + HEADER_SIZE];
   create_message(INIT_BALANCE, sizeof(uint64_t) * 2, payload, res);
 
   send_message(sizeof(res), res, client_fd.fd);
@@ -112,9 +112,9 @@ int handle_block_proposal(unsigned char *payload, node_ctx *ctx, int length) {
     return 1;
   }
   add_node(ctx, new_block);
-  unsigned char send_buff[length + 5];
+  unsigned char send_buff[length + HEADER_SIZE];
   create_message(BLOCK_PROPOSAL, length, payload, send_buff);
-  broadcast_message(send_buff, length + 5, ctx->peer_manager);
+  broadcast_message(send_buff, length + HEADER_SIZE, ctx->peer_manager);
   display_state(ctx);
   return 0;
 }
@@ -212,9 +212,9 @@ unsigned char *build_blocks_payload(block **requested_blocks,
 }
 
 int send_blocks_response(unsigned char *payload, uint64_t total_size, int fd) {
-  unsigned char *out = malloc(total_size + 5);
+  unsigned char *out = malloc(total_size + HEADER_SIZE);
   create_message(BLOCKS, total_size, payload, out);
-  send_message(total_size + 5, out, fd);
+  send_message(total_size + HEADER_SIZE, out, fd);
   free(payload);
   free(out);
   return 0;
@@ -280,7 +280,7 @@ int handle_get_block(Message *message, node_ctx *ctx, int fd) {
   int size = get_block_size(ctx->current_block);
   unsigned char serialized_block[size];
   serialize_block(ctx->current_block, serialized_block, true);
-  unsigned char payload[size + 5];
+  unsigned char payload[size + HEADER_SIZE];
   create_message(BLOCK, size, serialized_block, payload);
   send_message(sizeof(payload), payload, fd);
   return 0;
@@ -292,7 +292,7 @@ int handle_get_height(Message *message, node_ctx *ctx, int fd) {
 
   Writer w = {height_data, height_data + sizeof(uint64_t)};
   WRITE_FIELD(&w, height, sizeof(uint64_t));
-  unsigned char out[sizeof(height_data) + 5];
+  unsigned char out[sizeof(height_data) + HEADER_SIZE];
 
   create_message(HEIGHT, sizeof(uint64_t), height_data, out);
   send_message(sizeof(out), out, fd);

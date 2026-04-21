@@ -14,8 +14,7 @@ int read_header(unsigned char *buff, Message *message) {
   message->header = malloc(sizeof(struct MessageHeader));
   message->header->payload_len = 0;
   message->header->type = 0;
-  Reader r = {buff, buff + 5};
-  message->header->type = (enum MessageType)buff[0];
+  Reader r = {buff, buff + HEADER_SIZE};
 
   READ_FIELD(&r, message->header->type, 1);
   READ_FIELD(&r, message->header->payload_len,
@@ -26,7 +25,7 @@ int read_header(unsigned char *buff, Message *message) {
 
 int decode_message(unsigned char *buff, Message **message) {
   read_header(buff, *message);
-  buff += 5;
+  buff += HEADER_SIZE;
   (*message)->payload = malloc((*message)->header->payload_len);
   memcpy((*message)->payload, buff, (*message)->header->payload_len);
   return 0;
@@ -46,7 +45,7 @@ int write_header(MessageType type, uint32_t length, unsigned char *buff) {
 int create_message(MessageType type, uint32_t length, unsigned char *payload,
                    unsigned char *out) {
   write_header(type, length, out);
-  memcpy(out + 5, payload, length);
+  memcpy(out + HEADER_SIZE, payload, length);
   return 0;
 }
 

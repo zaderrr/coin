@@ -1,7 +1,5 @@
 #include "block.h"
-#include "genesis.h"
 #include "server.h"
-#include "util.h"
 #include "wallet.h"
 #include <node.h>
 #include <stdbool.h>
@@ -21,17 +19,8 @@ int main(int argc, char **argv) {
       return 1;
     }
   }
-  // build chain
-  block *gen_block = calloc(1, sizeof(block));
   node_ctx ctx = init_context();
-  ctx.current_block = gen_block;
-  ctx.chain = malloc(sizeof(chain));
-  ctx.chain->start = malloc(sizeof(chain_node));
-  ctx.chain->end = ctx.chain->start;
-  ctx.chain->end->block = gen_block;
-  ctx.chain->end->previous_node = NULL;
-  ctx.chain->end->next_node = NULL;
-  ctx.chain->count = 0;
+
   if (cfg.is_validator) {
     if (init_validator(&ctx, cfg.wallet_loc) == 1) {
       printf("Error initializing validator...\n");
@@ -46,8 +35,9 @@ int main(int argc, char **argv) {
   }
 
   // Start node
-  init_chain(ctx.current_state, gen_block);
+  build_chain(&ctx);
   init_network(&ctx, port);
+
   uint64_t response_start = 0;
   uint64_t last_progress = 0;
   int peers_responded = 0;
@@ -85,11 +75,9 @@ int main(int argc, char **argv) {
                  ctx.target_height != 0 && ctx.sync->confirming == true &&
                  ctx.sync->tip_confirmations >= 1) {
         ctx.state = READY;
-
         printf("Status: %lu/%lu\n", ctx.current_block->height,
                ctx.target_height);
         printf("Synced...\n");
-
         continue;
       }
       uint64_t silence = (uint64_t)time(NULL) - last_progress;
@@ -99,12 +87,10 @@ int main(int argc, char **argv) {
           ctx.state = READY;
           printf("No response from peers\n");
         } else {
-
           request_missing_blocks(&ctx);
           printf("Status: %lu/%lu\n", ctx.current_block->height,
                  ctx.target_height);
           last_progress = (uint64_t)time(NULL);
-
           request_current_height(ctx.peer_manager);
         }
       }

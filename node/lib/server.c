@@ -139,7 +139,7 @@ int request_missing_blocks(node_ctx *ctx) {
     WRITE_FIELD(&w, net_height, sizeof(uint64_t));
     index++;
   }
-  unsigned char payload[sizeof(block_heights) + 5];
+  unsigned char payload[sizeof(block_heights) + HEADER_SIZE];
   create_message(GET_BLOCKS, sizeof(block_heights), block_heights, payload);
   send_message(sizeof(payload), payload, ctx->peer_manager->peers[1].peer_fd);
   return 0;
@@ -152,7 +152,7 @@ int request_block(uint64_t height, PeerManager *pm) {
   Writer w = {message, message + sizeof(height)};
   WRITE_FIELD(&w, height, sizeof(height));
 
-  unsigned char payload[sizeof(height) + 5];
+  unsigned char payload[sizeof(height) + HEADER_SIZE];
   create_message(GET_BLOCK, sizeof(height), message, payload);
   // TODO: Add multi-node block requesting
   // Requests only from first peer.
@@ -205,10 +205,10 @@ int broadcast_tx(node_ctx *ctx, transaction *tx) {
   uint8_t buff[TX_SIZE];
   Writer w = {buff, buff + TX_SIZE};
   serialize_tx(&w, tx, true);
-  uint8_t msg[TX_SIZE + 5];
+  uint8_t msg[TX_SIZE + HEADER_SIZE];
   write_header(TX_SUBMIT, TX_SIZE, msg);
-  memcpy(msg + 5, buff, TX_SIZE);
-  broadcast_message(msg, TX_SIZE + 5, ctx->peer_manager);
+  memcpy(msg + HEADER_SIZE, buff, TX_SIZE);
+  broadcast_message(msg, TX_SIZE + HEADER_SIZE, ctx->peer_manager);
   return 0;
 }
 
@@ -303,7 +303,7 @@ uint32_t read_payload_len(unsigned char *buff) {
 int process_messages(Peer *peer, struct pollfd fd, node_ctx *ctx) {
   while (peer->buff_len >= 5) {
     uint32_t payload_len = read_payload_len(peer->buff);
-    size_t msg_size = payload_len + 5;
+    size_t msg_size = payload_len + HEADER_SIZE;
 
     if (peer->buff_len < msg_size)
       break;

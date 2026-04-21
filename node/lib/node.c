@@ -1,6 +1,7 @@
 #include "node.h"
 #include "block.h"
 #include "ed25519.h"
+#include "genesis.h"
 #include "merkle.h"
 #include "message.h"
 #include "server.h"
@@ -13,8 +14,6 @@
 #include <string.h>
 
 #define MAX_TX 256
-
-// Creates new account with the new balance
 
 int compare_tx(const void *a, const void *b) {
   transaction *ta = (transaction *)a;
@@ -32,9 +31,9 @@ int compare_tx(const void *a, const void *b) {
 }
 
 int broadcast_block(unsigned char *block_buff, int size, PeerManager *pm) {
-  unsigned char out_buff[size + 5];
+  unsigned char out_buff[size + HEADER_SIZE];
   create_message(BLOCK_PROPOSAL, size, block_buff, out_buff);
-  broadcast_message(out_buff, size + 5, pm);
+  broadcast_message(out_buff, size + HEADER_SIZE, pm);
   return 0;
 }
 
@@ -219,4 +218,18 @@ int init_validator(node_ctx *ctx, unsigned char *wallet_loc) {
   Wallet *wallet = malloc(sizeof(Wallet));
   ctx->wallet = wallet;
   return get_wallet(wallet, wallet_loc);
+}
+
+int build_chain(node_ctx *ctx) {
+  block *gen_block = calloc(1, sizeof(block));
+  ctx->current_block = gen_block;
+  ctx->chain = malloc(sizeof(chain));
+  ctx->chain->start = malloc(sizeof(chain_node));
+  ctx->chain->end = ctx->chain->start;
+  ctx->chain->end->block = gen_block;
+  ctx->chain->end->previous_node = NULL;
+  ctx->chain->end->next_node = NULL;
+  ctx->chain->count = 0;
+  init_chain(ctx->current_state, gen_block);
+  return 0;
 }

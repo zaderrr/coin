@@ -75,7 +75,7 @@ int send_transaction(unsigned char *to, uint64_t amount, int fd, Wallet *wallet,
   serialize_tx(&w, &tx, false);
   sign_transaction(&tx, wallet, tx_buff);
 
-  unsigned char buff[TX_SIZE + 5];
+  unsigned char buff[TX_SIZE + HEADER_SIZE];
   create_message(TX_SUBMIT, TX_SIZE, tx_buff, buff);
   send_message(sizeof(buff), buff, fd);
   wallet->nonce++;
