@@ -41,7 +41,6 @@ int connect_to_peer(Peer peer) {
 
   if ((status = connect(client_fd, (struct sockaddr *)&serv_addr,
                         sizeof(serv_addr))) < 0) {
-    printf("\nConnection Failed \n");
     return -1;
   }
   return client_fd;
@@ -110,6 +109,42 @@ struct pollfd start_server(uint16_t port) {
   return fds[0];
 }
 
+int request_current_height(PeerManager *pm) {
+  unsigned char payload[5];
+  create_message(GET_HEIGHT, 0, payload, payload);
+  send_message(5, payload, pm->peers[1].peer_fd);
+  return 0;
+}
+
+int request_missing_blocks(node_ctx *ctx) {
+  uint64_t num_blocks = ctx->target_height - ctx->current_block->height;
+  if (num_blocks == 0) {
+    return 0;
+  }
+  // Num blocks + block nums...
+  uint64_t index = 1;
+  if (num_blocks > 10) {
+    num_blocks = 10;
+  }
+  unsigned char block_heights[sizeof(uint64_t) * (num_blocks + 1)];
+  Writer w = {block_heights, block_heights + sizeof(block_heights)};
+  num_blocks = htonll(num_blocks);
+  WRITE_FIELD(&w, num_blocks, sizeof(num_blocks));
+  for (uint64_t i = ctx->current_block->height + 1; i <= ctx->target_height;
+       i++) {
+    if (index > 10) {
+      break;
+    }
+    uint64_t net_height = htonll(i);
+    WRITE_FIELD(&w, net_height, sizeof(uint64_t));
+    index++;
+  }
+  unsigned char payload[sizeof(block_heights) + 5];
+  create_message(GET_BLOCKS, sizeof(block_heights), block_heights, payload);
+  send_message(sizeof(payload), payload, ctx->peer_manager->peers[1].peer_fd);
+  return 0;
+}
+
 int request_block(uint64_t height, PeerManager *pm) {
   unsigned char message[sizeof(height)];
   height = htonll(height);
@@ -128,7 +163,6 @@ int request_block(uint64_t height, PeerManager *pm) {
 int init_network(node_ctx *ctx, uint16_t port) {
   struct pollfd server_fd = start_server(port);
   connect_to_peers(ctx, server_fd, port);
-  request_block(1, ctx->peer_manager);
   return 0;
 }
 
@@ -181,23 +215,56 @@ int broadcast_tx(node_ctx *ctx, transaction *tx) {
 int handle_decoded(Message *message, struct pollfd client_fd, node_ctx *ctx) {
   switch (message->header->type) {
   case HANDSHAKE: {
-    handle_handshake(message->payload, client_fd, ctx->current_state);
+    if (ctx->state == READY) {
+      handle_handshake(message->payload, client_fd, ctx->current_state);
+    }
     break;
   }
   case TX_SUBMIT: {
-    handle_tx(message->payload, ctx);
+
+    if (ctx->state == READY) {
+      handle_tx(message->payload, ctx);
+    }
     break;
   }
   case BLOCK_PROPOSAL: {
-    handle_block_proposal(message->payload, ctx, message->header->payload_len);
+
+    if (ctx->state == READY) {
+      handle_block_proposal(message->payload, ctx,
+                            message->header->payload_len);
+    }
     break;
   }
   case GET_BLOCK: {
-    handle_get_block(message, ctx, client_fd.fd);
+
+    if (ctx->state == READY) {
+      handle_get_block(message, ctx, client_fd.fd);
+    }
+    break;
+  }
+  case GET_BLOCKS: {
+
+    if (ctx->state == READY) {
+      handle_get_blocks(message, ctx, client_fd.fd);
+      break;
+    }
+  }
+  case GET_HEIGHT: {
+    if (ctx->state == READY) {
+      handle_get_height(message, ctx, client_fd.fd);
+    }
+    break;
+  }
+  case HEIGHT: {
+    handle_height_response(message, ctx);
     break;
   }
   case BLOCK: {
     handle_block_received(message);
+    break;
+  }
+  case BLOCKS: {
+    handle_blocks_received(message, ctx);
     break;
   }
   default: {
@@ -217,7 +284,7 @@ int remove_peer(PeerManager *pm, uint32_t *count, int *index) {
 }
 
 int read_buffer(Peer *peer, int fd) {
-  size_t space = 2048 - peer->buff_len;
+  size_t space = 20000 - peer->buff_len;
   if (space == 0)
     return 0;
   ssize_t n = recv(fd, peer->buff + peer->buff_len, space, 0);
@@ -247,7 +314,6 @@ int process_messages(Peer *peer, struct pollfd fd, node_ctx *ctx) {
     free(message->payload);
     free(message->header);
     free(message);
-
     // Move remaing bytes to start of buffer
     peer->buff_len -= msg_size;
     memmove(peer->buff, peer->buff + msg_size, peer->buff_len);

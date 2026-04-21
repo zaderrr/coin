@@ -16,7 +16,7 @@ int can_wirthdraw_stake(account *account, validator *val, transaction *tx,
 
   // Check they have been a validator for atleast X blocks
   int required_join = block->height - MIN_VALIDATOR_LENGTH;
-  if (val->activity[val->activity_length].joined > required_join) {
+  if (val->activity[val->activity_length - 1].joined > required_join) {
     printf("Not been validating long enough\n");
     return 1;
   }

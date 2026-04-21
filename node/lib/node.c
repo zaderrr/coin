@@ -98,13 +98,10 @@ block build_next_block(block *previous_block, node_ctx *ctx) {
   create_block_transactions(&next_block, ctx->mempool, ctx->current_state);
   build_block_roots(&next_block, ctx->current_state);
 
-  int size =
-      32 + 32 + 32 + 32 + 32 + 64 + 8 + 8 + 4 + (next_block.tx_count * TX_SIZE);
+  int size = get_block_size(&next_block);
   unsigned char serialized_block[size];
-  serialize_block(&next_block, serialized_block);
-
+  serialize_block(&next_block, serialized_block, false);
   sign_block(&next_block, serialized_block, size, ctx->wallet);
-
   broadcast_block(serialized_block, size, ctx->peer_manager);
 
   ctx->mempool->tx_count = 0;
@@ -152,9 +149,25 @@ node_ctx init_context() {
   ctx.current_state = current_state;
   ctx.mempool = malloc(sizeof(mempool));
   ctx.mempool->tx = malloc(sizeof(transaction) * MAX_TX);
+  ctx.state = INIT;
+  ctx.target_height = 0;
   ctx.mempool->capacity = MAX_TX;
   ctx.peer_manager = init_pm();
   return ctx;
+}
+
+int add_node(node_ctx *ctx, block *next_block) {
+  chain_node *next_node = malloc(sizeof(chain_node));
+
+  next_node->next_node = NULL;
+  next_node->block = next_block;
+  next_node->previous_node = ctx->chain->end;
+  ctx->chain->end->next_node = next_node;
+
+  ctx->chain->end = next_node;
+  ctx->current_block = next_block;
+  ctx->chain->count++;
+  return 0;
 }
 
 void display_state(node_ctx *ctx) {

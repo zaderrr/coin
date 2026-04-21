@@ -59,6 +59,7 @@ int handle_decoded(Message *message, struct pollfd client_fd, Wallet *wallet) {
   switch (message->header->type) {
   case INIT_BALANCE: {
     int b = handle_init_balance(message->payload, client_fd, wallet);
+    break;
   }
   default: {
     break;
