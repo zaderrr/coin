@@ -66,6 +66,8 @@ int create_block_transactions(block *next_block, node_ctx *ctx) {
     account *account = get_account(current_state, tx.from);
     if (validate_tx(&tx, current_state, account, next_block) == 0) {
       if (valid_nonce(account, &tx) == 1) {
+
+        printf("Problem validating this nonce\n");
         continue;
       }
       block_tx[tx_count] = tx;
@@ -183,10 +185,14 @@ void display_state(node_ctx *ctx) {
   for (int i = 0; i < ctx->current_state->validators_count; i++) {
     format_pub(ctx->current_state->validators[i].public_key);
     printf(" Stake: %lu", ctx->current_state->validators[i].stake);
-    printf(" Joined: %lu\n",
+    printf(" Joined: %lu",
            ctx->current_state->validators[i]
                .activity[ctx->current_state->validators[i].activity_length - 1]
                .joined);
+    printf(" Left: %lu\n",
+           ctx->current_state->validators[i]
+               .activity[ctx->current_state->validators[i].activity_length - 1]
+               .left);
   }
 
   printf("Current block: %lu\n", ctx->current_block->height);

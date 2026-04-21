@@ -7,13 +7,6 @@
 
 int can_wirthdraw_stake(account *account, validator *val, transaction *tx,
                         state *current_state, block *block) {
-  // Check if next proposer
-  validator *next_val = get_validator_for_height(current_state, block->height);
-  if (memcmp(next_val->public_key, val->public_key, 32)) {
-    printf("Can't withdraw, they're the next proposer\n");
-    return 1;
-  }
-
   // Check they have been a validator for atleast X blocks
   int required_join = block->height - MIN_VALIDATOR_LENGTH;
   if (val->activity[val->activity_length - 1].joined > required_join) {
@@ -22,7 +15,7 @@ int can_wirthdraw_stake(account *account, validator *val, transaction *tx,
   }
 
   if (tx->amount > val->stake) {
-    printf("Withdrawing too much");
+    printf("Withdrawing too much\n");
     return 1;
   }
 

@@ -147,7 +147,7 @@ int update_validator_withdrawl(state *current_state, transaction *tx,
   }
 
   if (tx->amount == val->stake) {
-    val->activity[val->activity_length - 1].left = new_block->height;
+    val->activity[val->activity_length - 1].left = new_block->height - 1;
   }
 
   from->balance += tx->amount;
