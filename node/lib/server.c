@@ -123,18 +123,24 @@ int request_missing_blocks(node_ctx *ctx) {
     return 0;
   }
   // Num blocks + block nums...
+  uint64_t index = 1;
+  if (num_blocks > 10) {
+    num_blocks = 10;
+  }
   unsigned char block_heights[sizeof(uint64_t) * (num_blocks + 1)];
-  int index = 1;
   Writer w = {block_heights, block_heights + sizeof(block_heights)};
   num_blocks = htonll(num_blocks);
   WRITE_FIELD(&w, num_blocks, sizeof(num_blocks));
-  for (int i = ctx->current_block->height + 1; i <= ctx->target_height; i++) {
-
+  for (uint64_t i = ctx->current_block->height + 1; i <= ctx->target_height;
+       i++) {
+    if (index > 10) {
+      break;
+    }
     uint64_t net_height = htonll(i);
     WRITE_FIELD(&w, net_height, sizeof(uint64_t));
     index++;
   }
-  unsigned char payload[sizeof(block_heights) + +5];
+  unsigned char payload[sizeof(block_heights) + 5];
   create_message(GET_BLOCKS, sizeof(block_heights), block_heights, payload);
   send_message(sizeof(payload), payload, ctx->peer_manager->peers[1].peer_fd);
   return 0;
@@ -210,27 +216,44 @@ int broadcast_tx(node_ctx *ctx, transaction *tx) {
 int handle_decoded(Message *message, struct pollfd client_fd, node_ctx *ctx) {
   switch (message->header->type) {
   case HANDSHAKE: {
-    handle_handshake(message->payload, client_fd, ctx->current_state);
+    if (ctx->state == READY) {
+      handle_handshake(message->payload, client_fd, ctx->current_state);
+    }
     break;
   }
   case TX_SUBMIT: {
-    handle_tx(message->payload, ctx);
+
+    if (ctx->state == READY) {
+      handle_tx(message->payload, ctx);
+    }
     break;
   }
   case BLOCK_PROPOSAL: {
-    handle_block_proposal(message->payload, ctx, message->header->payload_len);
+
+    if (ctx->state == READY) {
+      handle_block_proposal(message->payload, ctx,
+                            message->header->payload_len);
+    }
     break;
   }
   case GET_BLOCK: {
-    handle_get_block(message, ctx, client_fd.fd);
+
+    if (ctx->state == READY) {
+      handle_get_block(message, ctx, client_fd.fd);
+    }
     break;
   }
   case GET_BLOCKS: {
-    handle_get_blocks(message, ctx, client_fd.fd);
-    break;
+
+    if (ctx->state == READY) {
+      handle_get_blocks(message, ctx, client_fd.fd);
+      break;
+    }
   }
   case GET_HEIGHT: {
-    handle_get_height(message, ctx, client_fd.fd);
+    if (ctx->state == READY) {
+      handle_get_height(message, ctx, client_fd.fd);
+    }
     break;
   }
   case HEIGHT: {

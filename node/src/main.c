@@ -10,7 +10,7 @@
 #include <time.h>
 
 #define BLOCK_SCHEDULE 5
-#define QUIESCENCE_TIMEOUT 2
+#define QUIESCENCE_TIMEOUT 1
 
 int main(int argc, char **argv) {
   // Get config
@@ -95,6 +95,7 @@ int main(int argc, char **argv) {
           printf("No response from peers\n");
         } else {
           request_missing_blocks(&ctx);
+          printf("Getting more\n");
           last_progress = (uint64_t)time(NULL);
         }
       }
