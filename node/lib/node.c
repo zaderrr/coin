@@ -18,7 +18,7 @@
 
 #define MAX_TX 256
 
-static int num_blocks = 0;
+static uint64_t num_blocks = 0;
 static FILE *block_file;
 
 int compare_tx(const void *a, const void *b) {
@@ -276,7 +276,6 @@ bool open_block_file(char *path) {
 }
 
 bool write_block_to_file(block *to_write) {
-  fseek(block_file, 0, SEEK_CUR);
   uint64_t size = get_block_size(to_write);
   unsigned char block_bytes[size];
   serialize_block(to_write, block_bytes, true);
@@ -284,7 +283,7 @@ bool write_block_to_file(block *to_write) {
   if (num_blocks == 0) {
     fseek(block_file, 0, SEEK_SET);
     num_blocks++;
-    fwrite(&num_blocks, sizeof(int), 1, block_file);
+    fwrite(&num_blocks, sizeof(num_blocks), 1, block_file);
   }
 
   unsigned char magic[4] = {0x80, 0x08, 0x13, 0x50};
@@ -353,25 +352,35 @@ bool read_block_file(node_ctx *ctx, config *cfg) {
     return false;
   }
 
-  int file_num_blocks = 0;
-  fread(&file_num_blocks, sizeof(int), 1, block_file);
+  uint64_t file_num_blocks = 0;
+  fread(&file_num_blocks, sizeof(file_num_blocks), 1, block_file);
 
   num_blocks = file_num_blocks;
   int last_good = 0;
   for (int i = 0; i < file_num_blocks; i++) {
     block *block_read = malloc(sizeof(block));
 
+    last_good = ftell(block_file);
     if (read_block(&last_good, block_read, ctx) == false) {
       free_block(block_read);
+      fflush(block_file);
       ftruncate(fileno(block_file), last_good);
-      break;
+
+      // Update block count when truncating
+      num_blocks = i;
+      fseek(block_file, 0, SEEK_SET);
+      fwrite(&num_blocks, sizeof(num_blocks), 1, block_file);
+      fflush(block_file);
+      fseek(block_file, last_good, SEEK_SET);
+      return false;
     }
 
     add_node(ctx, block_read);
-    last_good = ftell(block_file);
   }
+
+  last_good = ftell(block_file);
   fflush(block_file);
-  return 0;
+  return true;
 }
 
 int build_chain(node_ctx *ctx, config *cfg) {
