@@ -11,9 +11,14 @@
 #include "validation.h"
 #include <netinet/in.h>
 #include <sodium.h>
+#include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
 
 #define MAX_TX 256
+
+static int num_blocks = 0;
+static FILE *block_file;
 
 int compare_tx(const void *a, const void *b) {
   transaction *ta = (transaction *)a;
@@ -131,6 +136,8 @@ int read_args(int count, char **args, config *out) {
       cfg.is_validator = true;
     } else if (strcmp(args[i], "--wallet") == 0) {
       cfg.wallet_loc = (unsigned char *)args[i + 1];
+    } else if (strcmp(args[i], "--chain") == 0) {
+      cfg.chain_loc = (unsigned char *)args[i + 1];
     } else if (strcmp(args[i], "--port") == 0) {
       char *endptr = NULL;
       uint64_t arg_port = strtoul(args[i + 1], &endptr, 10);
@@ -251,7 +258,87 @@ int init_validator(node_ctx *ctx, unsigned char *wallet_loc) {
   return get_wallet(wallet, wallet_loc);
 }
 
-int build_chain(node_ctx *ctx) {
+bool open_block_file(char *path) {
+  if (path == NULL) {
+    path = "/home/e/Documents/keys/block.block";
+  }
+  block_file = fopen(path, "rb+");
+  if (block_file == NULL) {
+    printf("Couldn't read file\n");
+    block_file = fopen(path, "wb+");
+    if (block_file == NULL) {
+      printf("Okay I really can't open this\n");
+      return false;
+    }
+  }
+  return true;
+}
+
+bool write_block_to_file(block *to_write) {
+  fseek(block_file, 0, SEEK_CUR);
+  uint64_t size = get_block_size(to_write);
+  unsigned char block_bytes[size];
+  serialize_block(to_write, block_bytes, true);
+
+  if (num_blocks == 0) {
+    fseek(block_file, 0, SEEK_SET);
+    num_blocks++;
+    fwrite(&num_blocks, sizeof(int), 1, block_file);
+  }
+
+  fseek(block_file, 0, SEEK_END);
+  fwrite(&size, sizeof(uint64_t), 1, block_file);
+  fwrite(block_bytes, size, 1, block_file);
+
+  num_blocks++;
+  fseek(block_file, 0, SEEK_SET);
+  fwrite(&num_blocks, sizeof(int), 1, block_file);
+  unsigned char hash[32];
+
+  return true;
+}
+
+bool read_block_file(node_ctx *ctx, config *cfg) {
+  if (open_block_file((char *)cfg->chain_loc) == false) {
+    return false;
+  }
+  int file_num_blocks = 0;
+  fread(&file_num_blocks, sizeof(int), 1, block_file);
+
+  num_blocks = file_num_blocks;
+  for (int i = 0; i < file_num_blocks; i++) {
+    uint64_t block_size = 0;
+
+    fread(&block_size, sizeof(uint64_t), 1, block_file);
+    if (block_size <= 0) {
+      printf("Invalid block size\n");
+      return false;
+    }
+
+    unsigned char file_block[block_size];
+    fread(file_block, block_size, 1, block_file);
+
+    block *block_read = malloc(sizeof(block));
+    deserialize_block(file_block, block_size, block_read);
+    if (verify_block(file_block, block_read, block_size) != 1) {
+      free_block(block_read);
+      printf("Problem\n");
+      return 1;
+    }
+
+    if (validate_block(block_read, ctx->current_block, ctx->current_state) !=
+        1) {
+      printf("invalid\n");
+      free_block(block_read);
+      return 1;
+    }
+    add_node(ctx, block_read);
+  }
+  fflush(block_file);
+  return 0;
+}
+
+int build_chain(node_ctx *ctx, config *cfg) {
   block *gen_block = calloc(1, sizeof(block));
   ctx->current_block = gen_block;
   ctx->chain = malloc(sizeof(chain));
@@ -262,5 +349,8 @@ int build_chain(node_ctx *ctx) {
   ctx->chain->end->next_node = NULL;
   ctx->chain->count = 0;
   init_chain(ctx->current_state, gen_block);
+
+  read_block_file(ctx, cfg);
+
   return 0;
 }

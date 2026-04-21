@@ -27,7 +27,7 @@ int hash_block(block *block, unsigned char buff[32]);
 int deserialize_block(unsigned char *buff, int length, block *out);
 int sign_block(block *next_block, unsigned char *block_buff, int size,
                Wallet *wallet);
-
+int free_block(block *block);
 int get_block_size(block *block);
 int serialize_block(block *next_block, unsigned char *buff,
                     bool include_signature);

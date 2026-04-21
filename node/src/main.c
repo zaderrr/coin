@@ -35,7 +35,7 @@ int main(int argc, char **argv) {
   }
 
   // Start node
-  build_chain(&ctx);
+  build_chain(&ctx, &cfg);
   init_network(&ctx, port);
 
   uint64_t response_start = 0;
@@ -111,6 +111,7 @@ int main(int argc, char **argv) {
           *new_block = build_next_block(ctx.current_block, &ctx);
           add_node(&ctx, new_block);
           display_state(&ctx);
+          write_block_to_file(new_block);
         }
       }
     }
