@@ -17,4 +17,9 @@ target_include_directories(coin_protocol PUBLIC
 target_link_libraries(coin_protocol PUBLIC ed25519_lib  ${SODIUM_LIBRARIES})
 
 target_include_directories(coin_protocol PUBLIC ${SODIUM_INCLUDE_DIRS})
+enable_testing()
+
+add_executable(test_block tests/test_block.c)
+target_link_libraries(test_block coin_protocol)
+add_test(NAME test_block COMMAND test_block)
 
