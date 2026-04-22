@@ -227,20 +227,8 @@ int get_password(char *password) {
 }
 
 int get_wallet(Wallet *wallet, unsigned char *wallet_loc) {
-  if (wallet_loc == NULL) {
-    char walletLoc[512];
-    const char *home = getenv("HOME");
-    if (!home) {
-      fprintf(stderr, "HOME not set\n");
-      return 1;
-    }
-    snprintf(walletLoc, sizeof walletLoc, "%s/Documents/keys/wallet.coin",
-             home);
-    wallet_loc = (unsigned char *)walletLoc;
-  }
-
   FILE *fptr;
-  fptr = fopen(wallet_loc, "rb");
+  fptr = fopen((char *)wallet_loc, "rb");
   char password[128];
   get_password(password);
   if (fptr == NULL) {
@@ -254,7 +242,7 @@ int get_wallet(Wallet *wallet, unsigned char *wallet_loc) {
 int init_validator(node_ctx *ctx, unsigned char *wallet_loc) {
   ctx->is_validator = true;
   // get validator key
-  Wallet *wallet = malloc(sizeof(Wallet));
+  Wallet *wallet = calloc(1, sizeof(Wallet));
   ctx->wallet = wallet;
   return get_wallet(wallet, wallet_loc);
 }
@@ -299,8 +287,7 @@ bool write_block_to_file(block *to_write) {
   // Update number of blocks in file
   num_blocks++;
   fseek(block_file, 0, SEEK_SET);
-  fwrite(&num_blocks, sizeof(int), 1, block_file);
-
+  fwrite(&num_blocks, sizeof(num_blocks), 1, block_file);
   return true;
 }
 

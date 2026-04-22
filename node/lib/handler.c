@@ -87,7 +87,7 @@ int handle_tx(unsigned char *payload, node_ctx *ctx) {
   int mempool_count = ctx->mempool->tx_count;
   ctx->mempool->tx[mempool_count] = tx;
   ctx->mempool->tx_count++;
-  broadcast_tx(ctx, &tx);
+  broadcast_tx(ctx, payload);
   return 0;
 }
 

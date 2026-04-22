@@ -199,15 +199,9 @@ int broadcast_message(unsigned char *buff, int length, PeerManager *pm) {
   return 0;
 }
 
-int broadcast_tx(node_ctx *ctx, transaction *tx) {
-  // This is where we tell our friends about the new transaction
-  // Type, From, To, Amount, Nonce, Signature
-  uint8_t buff[TX_SIZE];
-  Writer w = {buff, buff + TX_SIZE};
-  serialize_tx(&w, tx, true);
+int broadcast_tx(node_ctx *ctx, unsigned char *payload) {
   uint8_t msg[TX_SIZE + HEADER_SIZE];
-  write_header(TX_SUBMIT, TX_SIZE, msg);
-  memcpy(msg + HEADER_SIZE, buff, TX_SIZE);
+  create_message(TX_SUBMIT, TX_SIZE, payload, msg);
   broadcast_message(msg, TX_SIZE + HEADER_SIZE, ctx->peer_manager);
   return 0;
 }
@@ -221,14 +215,12 @@ int handle_decoded(Message *message, struct pollfd client_fd, node_ctx *ctx) {
     break;
   }
   case TX_SUBMIT: {
-
     if (ctx->state == READY) {
       handle_tx(message->payload, ctx);
     }
     break;
   }
   case BLOCK_PROPOSAL: {
-
     if (ctx->state == READY) {
       handle_block_proposal(message->payload, ctx,
                             message->header->payload_len);
@@ -236,14 +228,12 @@ int handle_decoded(Message *message, struct pollfd client_fd, node_ctx *ctx) {
     break;
   }
   case GET_BLOCK: {
-
     if (ctx->state == READY) {
       handle_get_block(message, ctx, client_fd.fd);
     }
     break;
   }
   case GET_BLOCKS: {
-
     if (ctx->state == READY) {
       handle_get_blocks(message, ctx, client_fd.fd);
       break;
@@ -264,7 +254,9 @@ int handle_decoded(Message *message, struct pollfd client_fd, node_ctx *ctx) {
     break;
   }
   case BLOCKS: {
-    handle_blocks_received(message, ctx);
+    if (ctx->state == SYNCING) {
+      handle_blocks_received(message, ctx);
+    }
     break;
   }
   default: {

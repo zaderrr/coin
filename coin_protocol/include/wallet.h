@@ -11,8 +11,8 @@ typedef struct FileEncryption {
 } FileEncryption;
 
 typedef struct Wallet {
-  unsigned char *public_key;
-  unsigned char *private_key;
+  unsigned char public_key[32];
+  unsigned char private_key[64];
   uint64_t balance;
   uint64_t nonce;
 } Wallet;

@@ -24,8 +24,6 @@ int create_wallet(Wallet *wallet, char *password) {
     printf("problem generating wallet\n");
     return 1;
   }
-  wallet->public_key = malloc(32);
-  wallet->private_key = malloc(64);
   memcpy(wallet->public_key, public_key, 32);
   memcpy(wallet->private_key, private_key, 64);
 
@@ -61,7 +59,6 @@ int encrypt_keys(unsigned char public_key[32], unsigned char private_key[64],
 }
 
 int decrypt_wallet(FILE *fptr, Wallet *wallet, char *password) {
-
   // Nonce = 24, Salt = 16, MAC = 16, Message = 32 + 64, + 2 commas + 2 space
   // Salt -> Nonce -> Cipher
   unsigned char salt[16];
@@ -88,11 +85,10 @@ int decrypt_wallet(FILE *fptr, Wallet *wallet, char *password) {
     printf("Wrong password or tampered data\n");
     return 1;
   }
-  wallet->public_key = malloc(32);
-  wallet->private_key = malloc(64);
 
   memcpy(wallet->public_key, decrypted, 32);
   memcpy(wallet->private_key, &decrypted[32], 64);
 
+  free(decrypted);
   return 0;
 }

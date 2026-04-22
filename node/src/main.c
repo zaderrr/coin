@@ -22,6 +22,10 @@ int main(int argc, char **argv) {
   node_ctx ctx = init_context();
 
   if (cfg.is_validator) {
+    if (cfg.wallet_loc == NULL) {
+      printf("Validators must provide a wallet location\n");
+      return 1;
+    }
     if (init_validator(&ctx, cfg.wallet_loc) == 1) {
       printf("Error initializing validator...\n");
       free(cfg.wallet_loc);
