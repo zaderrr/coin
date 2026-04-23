@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include <string.h>
 
+static int reward_count = 0;
+static block *curr_block = NULL;
+
 int can_wirthdraw_stake(account *account, validator *val, transaction *tx,
                         state *current_state, block *block) {
   // Check they have been a validator for atleast X blocks
@@ -23,6 +26,14 @@ int can_wirthdraw_stake(account *account, validator *val, transaction *tx,
 }
 
 int validate_reward(state *current_state, transaction *tx, block *new_block) {
+  if (curr_block == NULL || new_block != curr_block) {
+    curr_block = new_block;
+    reward_count = 0;
+  }
+  if (reward_count > 1) {
+    printf("Too many rewards...\n");
+    return 1;
+  }
   if (memcmp(tx->to, new_block->proposer, 32) != 0) {
     printf("Invalid receiver\n");
     return 1;
@@ -43,6 +54,7 @@ int validate_reward(state *current_state, transaction *tx, block *new_block) {
     printf("Invalid reward\n");
     return 1;
   }
+  reward_count++;
   return 0;
 }
 
@@ -87,6 +99,22 @@ int verify_transaction(unsigned char *payload, transaction *tx) {
 }
 
 int validate_tx(transaction *tx, state *state, account *from, block *block) {
+  // Reward TX isn't signed not have nonce
+  if (tx->type != TX_REWARD) {
+    unsigned char tx_buff[TX_SIZE];
+    Writer w = {tx_buff, tx_buff + TX_SIZE};
+    serialize_tx(&w, tx, true);
+
+    if (verify_transaction(tx_buff, tx) != 1) {
+      printf("Invalid signature!\n");
+      return 1;
+    }
+
+    if (valid_nonce(from, tx) == 1) {
+      printf("Invalid nonce\n");
+      return 1;
+    }
+  }
   switch (tx->type) {
   case TX_STAKE_DEPOSIT: {
     if (validate_stake_deposit(tx, state, from) == 1) {
