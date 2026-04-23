@@ -71,20 +71,7 @@ int create_block_transactions(block *next_block, node_ctx *ctx) {
     transaction tx = mempool->tx[i];
     account *account = get_account(current_state, tx.from);
 
-    unsigned char tx_buff[TX_SIZE];
-    Writer w = {tx_buff, tx_buff + TX_SIZE};
-    serialize_tx(&w, &tx, true);
-
-    if (verify_transaction(tx_buff, &tx) != 1) {
-      printf("Invalid signature!\n");
-      return 1;
-    }
-
     if (validate_tx(&tx, current_state, account, next_block) == 0) {
-      if (valid_nonce(account, &tx) == 1) {
-        printf("Invalid nonce\n");
-        continue;
-      }
       block_tx[tx_count] = tx;
       tx_count++;
       update_state(current_state, &tx, next_block);
@@ -259,20 +246,28 @@ bool open_block_file(char *path) {
       printf("Okay I really can't open this\n");
       return false;
     }
+    uint64_t zero = 0;
+    fwrite(&zero, sizeof(zero), 1, block_file);
+    fflush(block_file);
+    fsync(fileno(block_file));
   }
   return true;
 }
 
-bool write_block_to_file(block *to_write) {
+bool update_num_blocks() {
+  num_blocks++;
+  fseek(block_file, 0, SEEK_SET);
+  fwrite(&num_blocks, sizeof(num_blocks), 1, block_file);
+  fflush(block_file);
+  fsync(fileno(block_file));
+  return true;
+}
+
+bool write_to_disk(block *to_write) {
+
   uint64_t size = get_block_size(to_write);
   unsigned char block_bytes[size];
   serialize_block(to_write, block_bytes, true);
-
-  if (num_blocks == 0) {
-    fseek(block_file, 0, SEEK_SET);
-    num_blocks++;
-    fwrite(&num_blocks, sizeof(num_blocks), 1, block_file);
-  }
 
   unsigned char magic[4] = {0x80, 0x08, 0x13, 0x50};
   // Write magic, size, block, hash at end of file
@@ -283,11 +278,14 @@ bool write_block_to_file(block *to_write) {
   unsigned char hash[32];
   hash_block(to_write, hash);
   fwrite(hash, sizeof(hash), 1, block_file);
+  fflush(block_file);
+  fsync(fileno(block_file));
+  return true;
+}
 
-  // Update number of blocks in file
-  num_blocks++;
-  fseek(block_file, 0, SEEK_SET);
-  fwrite(&num_blocks, sizeof(num_blocks), 1, block_file);
+bool write_block_to_file(block *to_write) {
+  write_to_disk(to_write);
+  update_num_blocks();
   return true;
 }
 

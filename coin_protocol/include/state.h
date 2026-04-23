@@ -32,6 +32,8 @@ typedef struct state {
   validator *validators;
 } state;
 
+void free_state_contents(state *s);
+int copy_state(state *built_state, state *current_state);
 account *get_account(state *current_state, unsigned char public_key[32]);
 validator *get_validator(state *current_state, unsigned char public_key[32]);
 validator *get_validator_for_height(state *current_state, int height);

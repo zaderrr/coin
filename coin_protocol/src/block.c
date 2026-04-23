@@ -129,23 +129,29 @@ int validate_previous_hash(block *val_block, block *prev_block) {
   return 0;
 }
 
-int build_new_state(block *val_block, state *state) {
-  for (int i = 0; i < val_block->tx_count; i++) {
-    account *acc = get_account(state, val_block->transactions[i].from);
-    if (validate_tx(&val_block->transactions[i], state, acc, val_block) == 1) {
-      printf("Invalid tx\n");
-      return 0;
-    }
-    if (valid_nonce(acc, &val_block->transactions[i]) == 1) {
-      printf("Invalid nonce\n");
-      return 0;
-    }
-    update_state(state, &val_block->transactions[i], val_block);
+int build_new_state(block *val_block, state *current_state) {
+  state built_state;
+  if (copy_state(&built_state, current_state) == 1) {
+    printf("Failed copying\n");
+    return 1;
   }
-  return 1;
+  for (size_t i = 0; i < val_block->tx_count; i++) {
+    transaction *tx = &val_block->transactions[i];
+    account *acc = get_account(&built_state, tx->from);
+
+    if (validate_tx(tx, &built_state, acc, val_block) != 0) {
+      printf("Invalid tx at index %zu\n", i);
+      free_state_contents(&built_state);
+      return 1;
+    }
+    update_state(&built_state, tx, val_block);
+  }
+
+  free_state_contents(current_state);
+  *current_state = built_state;
+  return 0;
 }
 
-// TODO: Refactor this with the same as build_next_block
 int validate_roots(block *val_block, state *state) {
   unsigned char root[32];
   build_root(root, val_block->transactions, val_block->tx_count);
@@ -186,8 +192,10 @@ int validate_block(block *val_block, block *prev_block, state *state) {
   if (val_block->height != prev_block->height + 1) {
     return 0;
   }
-
-  build_new_state(val_block, state);
+  if (build_new_state(val_block, state) == 1) {
+    printf("Failed to build state\n");
+  } else {
+  }
 
   if (validate_roots(val_block, state) == 0) {
     return 0;

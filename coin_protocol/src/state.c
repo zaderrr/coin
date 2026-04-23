@@ -194,3 +194,64 @@ int update_state(state *current_state, transaction *tx, block *next_block) {
   }
   return 0;
 }
+
+int copy_state(state *built_state, state *current_state) {
+
+  *built_state = *current_state;
+
+  size_t acc_bytes = sizeof(account) * current_state->accounts_count;
+  size_t val_bytes = sizeof(validator) * current_state->validators_count;
+
+  account *new_accounts = malloc(acc_bytes);
+  validator *new_validators = malloc(val_bytes);
+
+  if (!new_accounts || !new_validators) {
+    free(new_accounts);
+    free(new_validators);
+    return 1;
+  }
+  built_state->validators = new_validators;
+  built_state->accounts = new_accounts;
+
+  memcpy(built_state->accounts, current_state->accounts, acc_bytes);
+  memcpy(built_state->validators, current_state->validators, val_bytes);
+
+  for (size_t i = 0; i < built_state->validators_count; i++) {
+    validator_activity *a = malloc(sizeof(validator_activity) *
+                                   built_state->validators[i].activity_length);
+    if (!a) {
+      for (size_t j = 0; j < i; j++)
+        free(new_validators[j].activity);
+      free(new_accounts);
+      free(new_validators);
+      return 1;
+    }
+    int act_count = built_state->validators[i].activity_length;
+    memcpy(a, built_state->validators[i].activity,
+           sizeof(validator_activity) * act_count);
+    for (int act_index = 0; act_index < act_count; act_index++) {
+      *a = *current_state->validators[i].activity;
+    }
+    new_validators[i].activity = a;
+  }
+  return 0;
+}
+
+void free_state_contents(state *s) {
+  if (!s)
+    return;
+
+  if (s->validators) {
+    for (size_t i = 0; i < s->validators_count; i++) {
+      free(s->validators[i].activity);
+    }
+    free(s->validators);
+  }
+
+  if (s->accounts) {
+    free(s->accounts);
+  }
+
+  s->validators = NULL;
+  s->accounts = NULL;
+}
