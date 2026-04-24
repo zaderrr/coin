@@ -4,6 +4,7 @@
 #include "sodium.h"
 #include "util.h"
 #include <arpa/inet.h>
+#include <blst.h>
 #include <string.h>
 #include <sys/poll.h>
 #include <sys/socket.h>
@@ -24,6 +25,7 @@ int main(int argc, char *args[]) {
     return 1;
   Wallet *wallet = malloc(sizeof(Wallet));
   wallet->nonce = 0;
+
   char wallet_loc[512];
   if (argc > 1) {
     if (strcmp(args[1], "--wallet") == 0) {

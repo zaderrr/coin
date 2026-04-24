@@ -17,7 +17,8 @@ typedef enum MessageType {
   BLOCKS,
   GET_HEIGHT,
   HEIGHT,
-  BLOCK_PROPOSAL
+  BLOCK_PROPOSAL,
+  VOTE,
 } MessageType;
 
 typedef struct MessageHeader {

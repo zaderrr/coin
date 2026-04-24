@@ -1,7 +1,9 @@
 #include "client.h"
 #include "sodium.h"
+#include "wallet.h"
 #include <message.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -13,12 +15,17 @@ int write_keys_to_file(FileEncryption *cipher, char wallet_loc[512]) {
     printf("Something went badly wrong...\n");
     return 1;
   }
+
   fwrite(cipher->salt, 1, crypto_pwhash_SALTBYTES, fptr);
   fwrite(cipher->nonce, 1, crypto_secretbox_NONCEBYTES, fptr);
-  unsigned long long ciphertext_len = crypto_secretbox_MACBYTES + 32 + 64;
+  unsigned long long ciphertext_len = crypto_secretbox_MACBYTES + wallet_len;
+
   fwrite(cipher->CipherText, 1, ciphertext_len, fptr);
   fclose(fptr);
-
+  free(cipher->CipherText);
+  free(cipher->nonce);
+  free(cipher->salt);
+  free(cipher);
   return 0;
 }
 
@@ -47,13 +54,10 @@ int init_wallet(Wallet *wallet, char walletLoc[512]) {
     create_wallet(wallet, password);
     struct FileEncryption *file;
     file = malloc(sizeof(struct FileEncryption));
-    encrypt_keys(wallet->public_key, wallet->private_key, password, file);
+    encrypt_keys(wallet, password, file);
     return write_keys_to_file(file, walletLoc);
   } else {
     return decrypt_wallet(fptr, wallet, password);
   }
   return 0;
 }
-
-// Send **args to fd
-// args[0] = amount, args[1] = recipient
