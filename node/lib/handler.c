@@ -17,7 +17,7 @@
 
 int mempool_contains(mempool *pool, transaction *tx) {
   for (int i = 0; i < pool->tx_count; i++) {
-    if (memcmp(pool->tx[i].signature, tx->signature, 64) == 0) {
+    if (memcmp(pool->tx[i]->signature, tx->signature, 64) == 0) {
       return 0;
     }
   }
@@ -58,15 +58,19 @@ int handle_handshake(unsigned char *buff, struct pollfd client_fd,
   return 0;
 }
 
-int handle_tx(unsigned char *payload, node_ctx *ctx) {
-  Reader r = {payload, payload + TX_SIZE};
-  transaction tx = {0};
+int handle_tx(Message *message, node_ctx *ctx) {
+  Reader r = {message->payload,
+              message->payload + message->header->payload_len};
+  int tx_size = 0;
+  READ_FIELD(&r, tx_size, sizeof(tx_size));
+  tx_size = htonl(tx_size);
+  transaction *tx = malloc(tx_size);
 
-  if (deserialize_tx(&r, &tx) != 0) {
+  if (deserialize_tx(&r, tx) != 0) {
     return 1;
   }
 
-  if (verify_transaction(payload, &tx) != 1) {
+  if (verify_transaction(message->payload, tx) != 1) {
     return 1;
   }
 
@@ -75,19 +79,19 @@ int handle_tx(unsigned char *payload, node_ctx *ctx) {
   }
 
   // Check we don't already have this transaction
-  if (mempool_contains(ctx->mempool, &tx) == 0) {
+  if (mempool_contains(ctx->mempool, tx) == 0) {
     return 1;
   }
 
-  account *from = get_account(ctx->current_state, tx.from);
-  if (validate_tx(&tx, ctx->current_state, from, ctx->current_block) == 1) {
+  account *from = get_account(ctx->current_state, tx->from);
+  if (validate_tx(tx, ctx->current_state, from, ctx->current_block) == 1) {
     return 1;
   }
 
   int mempool_count = ctx->mempool->tx_count;
   ctx->mempool->tx[mempool_count] = tx;
   ctx->mempool->tx_count++;
-  broadcast_tx(ctx, payload);
+  broadcast_tx(ctx, message->payload, tx_size);
   return 0;
 }
 

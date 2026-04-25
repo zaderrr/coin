@@ -199,10 +199,10 @@ int broadcast_message(unsigned char *buff, int length, PeerManager *pm) {
   return 0;
 }
 
-int broadcast_tx(node_ctx *ctx, unsigned char *payload) {
-  uint8_t msg[TX_SIZE + HEADER_SIZE];
-  create_message(TX_SUBMIT, TX_SIZE, payload, msg);
-  broadcast_message(msg, TX_SIZE + HEADER_SIZE, ctx->peer_manager);
+int broadcast_tx(node_ctx *ctx, unsigned char *payload, int length) {
+  uint8_t msg[length + HEADER_SIZE];
+  create_message(TX_SUBMIT, length, payload, msg);
+  broadcast_message(msg, length + HEADER_SIZE, ctx->peer_manager);
   return 0;
 }
 
@@ -216,7 +216,7 @@ int handle_decoded(Message *message, struct pollfd client_fd, node_ctx *ctx) {
   }
   case TX_SUBMIT: {
     if (ctx->state == READY) {
-      handle_tx(message->payload, ctx);
+      handle_tx(message, ctx);
     }
     break;
   }

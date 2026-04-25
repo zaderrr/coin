@@ -15,6 +15,7 @@ typedef struct {
 typedef struct {
   unsigned char public_key[32];
   unsigned char bls_key[96];
+  unsigned char bls_pop[48];
   uint64_t stake;
   validator_activity *activity;
   size_t activity_length;

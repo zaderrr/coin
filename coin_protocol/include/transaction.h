@@ -2,9 +2,7 @@
 #define COIN_TX_H
 #include "util.h"
 #include "wallet.h"
-#include <stdbool.h>
-
-#define TX_SIZE 145
+#include <stdint.h>
 
 typedef enum {
   TX_TRANSFER,
@@ -14,22 +12,31 @@ typedef enum {
 } tx_type;
 
 typedef struct {
+  unsigned char signature[64];
   unsigned char from[32];
   unsigned char to[32];
-  unsigned char signature[64];
-  uint64_t amount;
-  uint64_t nonce;
   tx_type type;
+  uint64_t nonce;
+  uint64_t amount;
+  int32_t body_size;
+  unsigned char body[];
 } transaction;
 
-// +4 for padding, + 3 for type->char
-_Static_assert(sizeof(transaction) - 7 == TX_SIZE, "struct size mismatch");
+typedef struct {
+  unsigned char message[256];
+} tx_transfer_body;
 
-int send_transaction(unsigned char *to, uint64_t amount, int fd, Wallet *wallet,
-                     tx_type type);
+typedef struct {
+  unsigned char bls_pk[96];
+  unsigned char pop[48];
+} tx_stake_body;
+
+int send_transaction(transaction *tx, int fd, Wallet *wallet);
 int deserialize_tx(Reader *reader, transaction *out);
+int create_tx(transaction *tx, unsigned char *to, Wallet *wallet,
+              uint64_t amount, tx_type type);
+int get_tx_size(transaction *tx);
 int serialize_tx(Writer *writer, transaction *tx, bool include_signature);
-
 int sign_transaction(transaction *tx, Wallet *wallet, unsigned char *buff);
-transaction create_block_reward(unsigned char *to);
+int create_block_reward(unsigned char *to, transaction *tx);
 #endif

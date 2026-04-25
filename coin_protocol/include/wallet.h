@@ -20,10 +20,11 @@ typedef struct Wallet {
   uint64_t balance;
   uint64_t nonce;
 } Wallet;
+
 int generate_wallet(unsigned char pub[32], unsigned char private[64]);
 int encrypt_keys(Wallet *wallet, char *password, struct FileEncryption *cipher);
 int create_wallet(Wallet *wallet, char *password);
-
+int create_pop(Wallet *wallet, unsigned char *sig_out);
 int bls_keygen(blst_scalar *sk_out, blst_p2_affine *pk_out);
 int decrypt_wallet(FILE *fptr, Wallet *wallet, char *password);
 #endif

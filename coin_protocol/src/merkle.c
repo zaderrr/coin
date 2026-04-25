@@ -79,11 +79,11 @@ unsigned char *build_tx_leaf(transaction *tx) {
 
   return leaf;
 }
-int build_root(unsigned char *root, transaction *tx, int tx_count) {
+int build_root(unsigned char *root, transaction **tx, int tx_count) {
   size_t leaf_size = 32 + 32 + 8 + 1;
   unsigned char **leafs = malloc(sizeof(unsigned char *) * tx_count);
   for (int i = 0; i < tx_count; i++) {
-    leafs[i] = build_tx_leaf(&tx[i]);
+    leafs[i] = build_tx_leaf(tx[i]);
   }
   compute_merkle_root(leafs, tx_count, root, leaf_size);
   for (int i = 0; i < tx_count; i++) {

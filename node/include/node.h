@@ -1,6 +1,5 @@
 #include "block.h"
 #include "state.h"
-#include "stdbool.h"
 #include "wallet.h"
 #include <stdint.h>
 
@@ -10,7 +9,7 @@
 typedef struct {
   uint32_t tx_count;
   uint32_t capacity;
-  transaction *tx;
+  transaction **tx;
 } mempool;
 
 typedef struct {

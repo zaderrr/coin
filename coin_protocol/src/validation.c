@@ -95,14 +95,17 @@ int validate_stake_deposit(transaction *tx, state *state, account *from) {
 }
 
 int verify_transaction(unsigned char *payload, transaction *tx) {
-  return ed25519_verify(tx->signature, payload, 81, tx->from);
+  int tx_size = get_tx_size(tx);
+  return ed25519_verify(tx->signature, payload, tx_size - 64, tx->from);
 }
 
 int validate_tx(transaction *tx, state *state, account *from, block *block) {
   // Reward TX isn't signed not have nonce
   if (tx->type != TX_REWARD) {
-    unsigned char tx_buff[TX_SIZE];
-    Writer w = {tx_buff, tx_buff + TX_SIZE};
+    int tx_size = get_tx_size(tx);
+    unsigned char tx_buff[tx_size];
+    Writer w = {tx_buff, tx_buff + tx_size};
+
     serialize_tx(&w, tx, true);
 
     if (verify_transaction(tx_buff, tx) != 1) {

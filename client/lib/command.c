@@ -98,23 +98,41 @@ int listen_for_command(struct pollfd *infd, command *cmd) {
   return 1;
 }
 
+void create_stake_body(transaction *tx, Wallet *wallet) {
+  unsigned char sig[48];
+  create_pop(wallet, sig);
+
+  memcpy(tx->body, wallet->bls_pk, sizeof(wallet->bls_pk));
+  memcpy(tx->body + sizeof(wallet->bls_pk), sig, sizeof(sig));
+}
+
 void execute_command(command *cmd, int fd, Wallet *wallet) {
   if (cmd->type == SEND) {
     uint64_t amount = strtoull((const char *)cmd->args[0], NULL, 10);
-    send_transaction(cmd->args[1], amount, fd, wallet, TX_TRANSFER);
+    unsigned char *to = cmd->args[1];
+    transaction *tx = calloc(1, sizeof(transaction));
+    create_tx(tx, to, wallet, amount, TX_TRANSFER);
+    send_transaction(tx, fd, wallet);
     free(cmd->args[0]);
     free(cmd->args[1]);
   } else if (cmd->type == STAKE || cmd->type == WITHDRAW) {
     uint64_t amount = strtoull((const char *)cmd->args[0], NULL, 10);
     unsigned char null_addr[32] = {0};
     tx_type type;
+
+    transaction *tx = malloc(sizeof(transaction) + 96 + 48);
+
     if (cmd->type == STAKE) {
       type = TX_STAKE_DEPOSIT;
+      create_stake_body(tx, wallet);
     } else {
       type = TX_STAKE_WITHDRAW;
     }
-    send_transaction(null_addr, amount, fd, wallet, type);
+
+    create_tx(tx, null_addr, wallet, amount, type);
+    send_transaction(tx, fd, wallet);
     free(cmd->args[0]);
+    free(tx);
   } else if (cmd->type == BALANCE) {
     send_balance_request(fd, wallet);
   }

@@ -21,8 +21,6 @@ int generate_wallet(unsigned char pub[32], unsigned char private[64]) {
   return 1;
 }
 
-int bls_keygen(blst_scalar *sk_out, blst_p2_affine *pk_out) { return 0; }
-
 int generate_bls_keypair(unsigned char *sk_bytes, unsigned char *pk_bytes) {
   uint8_t ikm[32];
 
@@ -42,7 +40,28 @@ int generate_bls_keypair(unsigned char *sk_bytes, unsigned char *pk_bytes) {
   blst_bendian_from_scalar(sk_bytes, &sk);
   blst_p2_affine_compress(pk_bytes, &pk);
 
-  memset(ikm, 0, sizeof(ikm));
+  explicit_bzero(&sk, sizeof(sk));
+  explicit_bzero(ikm, sizeof(ikm));
+
+  return 0;
+}
+
+int create_pop(Wallet *wallet, unsigned char *sig_out) {
+  blst_p1 sig;
+  blst_p1 hash;
+  blst_scalar sk_scalar;
+  blst_scalar_from_bendian(&sk_scalar, wallet->bls_sk);
+
+  char *DST = "COIN_POP_V1";
+
+  blst_hash_to_g1(&hash, wallet->bls_pk, sizeof(wallet->bls_pk),
+                  (unsigned char *)DST, strlen(DST), NULL, 0);
+
+  blst_sign_pk_in_g2(&sig, &hash, &sk_scalar);
+
+  blst_p1_compress(sig_out, &sig);
+
+  explicit_bzero(&sk_scalar, sizeof(sk_scalar));
 
   return 0;
 }

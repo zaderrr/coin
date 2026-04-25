@@ -46,8 +46,7 @@ int get_block_size(block *block) {
   if (block == NULL) {
     return -1;
   }
-  int size =
-      32 + 32 + 32 + 32 + 32 + 64 + 8 + 8 + 4 + (block->tx_count * TX_SIZE);
+  int size = 32 + 32 + 32 + 32 + 32 + 64 + 8 + 8 + 4 + block->tx_size;
 
   return size;
 }
@@ -63,6 +62,8 @@ int serialize_block(block *next_block, unsigned char *buff,
   uint64_t timestamp = htonll(next_block->timestamp);
   uint64_t height = htonll(next_block->height);
   uint32_t tx_count = htonl(next_block->tx_count);
+  uint32_t tx_size = htonl(next_block->tx_size);
+
   Writer w = {buff, buff + size};
   WRITE_FIELD(&w, height, sizeof(next_block->height));
   WRITE_FIELD(&w, next_block->prev_hash, sizeof(next_block->prev_hash));
@@ -73,8 +74,10 @@ int serialize_block(block *next_block, unsigned char *buff,
   WRITE_FIELD(&w, timestamp, sizeof(next_block->timestamp));
   WRITE_FIELD(&w, next_block->proposer, sizeof(next_block->proposer));
   WRITE_FIELD(&w, tx_count, sizeof(next_block->tx_count));
+  WRITE_FIELD(&w, tx_size, sizeof(next_block->tx_size));
+
   for (int i = 0; i < next_block->tx_count; i++) {
-    transaction *tx = &next_block->transactions[i];
+    transaction *tx = next_block->transactions[i];
     serialize_tx(&w, tx, true);
   }
 
@@ -96,20 +99,26 @@ int deserialize_block(unsigned char *buff, int length, block *out) {
   READ_FIELD(&r, next_block.timestamp, sizeof(next_block.timestamp));
   READ_FIELD(&r, next_block.proposer, sizeof(next_block.proposer));
   READ_FIELD(&r, next_block.tx_count, sizeof(next_block.tx_count));
+  READ_FIELD(&r, next_block.tx_size, sizeof(next_block.tx_size));
 
   next_block.tx_count = ntohl(next_block.tx_count);
   next_block.height = htonll(next_block.height);
   next_block.timestamp = htonll(next_block.timestamp);
+  next_block.tx_size = htonl(ntohl(next_block.tx_size));
 
-  next_block.transactions = malloc(sizeof(transaction) * next_block.tx_count);
+  next_block.transactions = malloc(next_block.tx_count * sizeof(transaction *));
 
   for (int i = 0; i < next_block.tx_count; i++) {
-    transaction tx = {0};
-    if (deserialize_tx(&r, &tx) == 1) {
+    int tx_size = 0;
+    READ_FIELD(&r, tx_size, sizeof(tx_size));
+    tx_size = ntohl(tx_size);
+    transaction *tx = malloc(tx_size);
+    if (deserialize_tx(&r, tx) == 1) {
       return 1;
     }
     next_block.transactions[i] = tx;
   }
+
   READ_FIELD(&r, next_block.signature, sizeof(next_block.signature));
   memcpy(out, &next_block, sizeof(next_block));
 
@@ -136,7 +145,7 @@ int build_new_state(block *val_block, state *current_state) {
     return 1;
   }
   for (size_t i = 0; i < val_block->tx_count; i++) {
-    transaction *tx = &val_block->transactions[i];
+    transaction *tx = val_block->transactions[i];
     account *acc = get_account(&built_state, tx->from);
 
     if (validate_tx(tx, &built_state, acc, val_block) != 0) {

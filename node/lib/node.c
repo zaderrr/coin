@@ -7,11 +7,9 @@
 #include "server.h"
 #include "time.h"
 #include "transaction.h"
-#include "util.h"
 #include "validation.h"
 #include <netinet/in.h>
 #include <sodium.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -59,22 +57,29 @@ block create_block_header(block *previous_block, node_ctx *ctx) {
 int create_block_transactions(block *next_block, node_ctx *ctx) {
   mempool *mempool = ctx->mempool;
   state *current_state = ctx->current_state;
-  transaction *block_tx = malloc(sizeof(transaction) * (mempool->tx_count + 1));
+  transaction **block_tx =
+      malloc(sizeof(transaction *) * (mempool->tx_count + 1));
   int tx_count = 0;
+
   // Sorts by account by nonce
   qsort(mempool->tx, mempool->tx_count, sizeof(transaction), compare_tx);
-  // Create reward tx
-  block_tx[tx_count] = create_block_reward(next_block->proposer);
-  update_state(current_state, &block_tx[tx_count], next_block);
-  tx_count++;
-  for (int i = 0; i < mempool->tx_count; i++) {
-    transaction tx = mempool->tx[i];
-    account *account = get_account(current_state, tx.from);
 
-    if (validate_tx(&tx, current_state, account, next_block) == 0) {
+  // Create reward tx
+
+  transaction *t = calloc(1, sizeof(transaction));
+  create_block_reward(next_block->proposer, t);
+  block_tx[tx_count] = t;
+  update_state(current_state, block_tx[tx_count], next_block);
+  tx_count++;
+  next_block->tx_size += get_tx_size(block_tx[0]);
+  for (int i = 0; i < mempool->tx_count; i++) {
+    transaction *tx = mempool->tx[i];
+    account *account = get_account(current_state, tx->from);
+    if (validate_tx(tx, current_state, account, next_block) == 0) {
       block_tx[tx_count] = tx;
       tx_count++;
-      update_state(current_state, &tx, next_block);
+      update_state(current_state, tx, next_block);
+      next_block->tx_size += get_tx_size(tx);
     }
   }
 
@@ -159,7 +164,7 @@ node_ctx init_context() {
   node_ctx ctx = {0};
   ctx.current_state = current_state;
   ctx.mempool = malloc(sizeof(mempool));
-  ctx.mempool->tx = malloc(sizeof(transaction) * MAX_TX);
+  ctx.mempool->tx = malloc(sizeof(transaction *) * MAX_TX);
   ctx.state = INIT;
   ctx.target_height = 0;
   ctx.mempool->capacity = MAX_TX;

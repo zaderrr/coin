@@ -10,4 +10,4 @@ void free_leaves(unsigned char **leaves, size_t count);
 int build_validators_hash(validator *validators, unsigned char *out_buf,
                           int count);
 int build_accounts_hash(account *accounts, unsigned char *out_buf, int count);
-int build_root(unsigned char *root, transaction *tx, int tx_count);
+int build_root(unsigned char *root, transaction **tx, int tx_count);

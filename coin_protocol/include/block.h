@@ -18,7 +18,8 @@ typedef struct block {
   uint64_t timestamp;
   unsigned char proposer[32];
   uint32_t tx_count;
-  transaction *transactions;
+  uint32_t tx_size;
+  transaction **transactions;
   uint8_t signature[64];
 } block;
 

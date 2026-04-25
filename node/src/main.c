@@ -2,7 +2,6 @@
 #include "server.h"
 #include "wallet.h"
 #include <node.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
