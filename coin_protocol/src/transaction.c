@@ -7,7 +7,6 @@
 #include <netinet/in.h>
 #include <stdint.h>
 #include <string.h>
-#define TX_DATA_SIZE 81 // 1 + 32 + 32 + 8 + 8
 
 int get_tx_size(transaction *tx) {
   int size = 4 + 1 + 32 + 32 + 8 + 8 + 4 + tx->body_size + 64;
@@ -30,7 +29,7 @@ int serialize_tx(Writer *w, transaction *tx, bool include_signature) {
   WRITE_FIELD(w, tx->to, sizeof(tx->to));
   WRITE_FIELD(w, amount_n, sizeof(amount_n));
   WRITE_FIELD(w, nonce_n, sizeof(nonce_n));
-  WRITE_FIELD(w, tx->body_size, sizeof(tx->body_size));
+  WRITE_FIELD(w, body_len_n, sizeof(tx->body_size));
   WRITE_FIELD(w, tx->body, tx->body_size);
 
   if (include_signature == true) {
@@ -63,21 +62,20 @@ int create_tx(transaction *tx, unsigned char *to, Wallet *wallet,
 
 // Read transaction from payload
 int deserialize_tx(Reader *r, transaction *out) {
-  transaction tx = {0};
+  READ_FIELD(r, out->type, 1);
+  READ_FIELD(r, out->from, sizeof(out->from));
+  READ_FIELD(r, out->to, sizeof(out->to));
+  READ_FIELD(r, out->amount, sizeof(out->amount));
+  READ_FIELD(r, out->nonce, sizeof(out->nonce));
 
-  READ_FIELD(r, tx.type, 1);
-  READ_FIELD(r, tx.from, sizeof(tx.from));
-  READ_FIELD(r, tx.to, sizeof(tx.to));
-  READ_FIELD(r, tx.amount, sizeof(tx.amount));
-  READ_FIELD(r, tx.nonce, sizeof(tx.nonce));
-  READ_FIELD(r, tx.body_size, sizeof(tx.body_size));
-  READ_FIELD(r, tx.body, tx.body_size);
-  READ_FIELD(r, tx.signature, sizeof(tx.signature));
+  READ_FIELD(r, out->body_size, sizeof(out->body_size));
+  out->body_size = ntohl(out->body_size);
 
-  tx.nonce = htonll(tx.nonce);
-  tx.body_size = ntohl(tx.body_size);
-  tx.amount = htonll(tx.amount);
-  *out = tx;
+  READ_FIELD(r, out->body, out->body_size);
+  READ_FIELD(r, out->signature, sizeof(out->signature));
+
+  out->nonce = htonll(out->nonce);
+  out->amount = htonll(out->amount);
   return 0;
 }
 

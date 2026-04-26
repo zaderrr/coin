@@ -64,15 +64,24 @@ int handle_tx(Message *message, node_ctx *ctx) {
   int tx_size = 0;
   READ_FIELD(&r, tx_size, sizeof(tx_size));
   tx_size = htonl(tx_size);
-  transaction *tx = malloc(tx_size);
+  transaction *tx = calloc(1, tx_size);
+  printf("Received tx: ");
+  for (int i = 0; i < message->header->payload_len; i++) {
+    printf("%02x", message->payload[i]);
+  }
+  printf("\n");
 
   if (deserialize_tx(&r, tx) != 0) {
     return 1;
   }
 
+  printf("Deserialized\n");
+
   if (verify_transaction(message->payload, tx) != 1) {
     return 1;
   }
+
+  printf("Verified\n");
 
   if (ctx->mempool->tx_count >= ctx->mempool->capacity) {
     return 1;
@@ -83,15 +92,20 @@ int handle_tx(Message *message, node_ctx *ctx) {
     return 1;
   }
 
+  printf("Don't have\n");
   account *from = get_account(ctx->current_state, tx->from);
   if (validate_tx(tx, ctx->current_state, from, ctx->current_block) == 1) {
     return 1;
   }
 
+  printf("Validated\n");
+
   int mempool_count = ctx->mempool->tx_count;
   ctx->mempool->tx[mempool_count] = tx;
   ctx->mempool->tx_count++;
   broadcast_tx(ctx, message->payload, tx_size);
+
+  printf("Broadcasted + added\n");
   return 0;
 }
 
