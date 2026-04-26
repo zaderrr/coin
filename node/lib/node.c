@@ -65,7 +65,6 @@ int create_block_transactions(block *next_block, node_ctx *ctx) {
   qsort(mempool->tx, mempool->tx_count, sizeof(transaction), compare_tx);
 
   // Create reward tx
-
   transaction *t = calloc(1, sizeof(transaction));
   create_block_reward(next_block->proposer, t);
   block_tx[tx_count] = t;
@@ -73,13 +72,17 @@ int create_block_transactions(block *next_block, node_ctx *ctx) {
   tx_count++;
   next_block->tx_size += get_tx_size(block_tx[0]);
   for (int i = 0; i < mempool->tx_count; i++) {
-    transaction *tx = mempool->tx[i];
+    int tx_size = get_tx_size(mempool->tx[i]);
+    transaction *tx = calloc(1, tx_size);
+    *tx = *mempool->tx[i];
     account *account = get_account(current_state, tx->from);
     if (validate_tx(tx, current_state, account, next_block) == 0) {
       block_tx[tx_count] = tx;
       tx_count++;
       update_state(current_state, tx, next_block);
       next_block->tx_size += get_tx_size(tx);
+    } else {
+      free(tx);
     }
   }
 
@@ -165,9 +168,9 @@ node_ctx init_context() {
   ctx.current_state = current_state;
   ctx.mempool = malloc(sizeof(mempool));
   ctx.mempool->tx = malloc(sizeof(transaction *) * MAX_TX);
+  ctx.mempool->capacity = MAX_TX;
   ctx.state = INIT;
   ctx.target_height = 0;
-  ctx.mempool->capacity = MAX_TX;
   ctx.peer_manager = init_pm();
   return ctx;
 }
