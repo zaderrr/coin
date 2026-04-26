@@ -8,6 +8,7 @@
 #include "util.h"
 #include "validation.h"
 #include <netinet/in.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -61,10 +62,13 @@ int handle_handshake(unsigned char *buff, struct pollfd client_fd,
 int handle_tx(Message *message, node_ctx *ctx) {
   Reader r = {message->payload,
               message->payload + message->header->payload_len};
+
   int tx_size = 0;
   READ_FIELD(&r, tx_size, sizeof(tx_size));
-  tx_size = htonl(tx_size);
-  transaction *tx = calloc(1, tx_size);
+  tx_size = ntohl(tx_size);
+  int32_t body_size = tx_size - TX_WIRE_FIXED_SIZE;
+  size_t mem_size = sizeof(transaction) + body_size;
+  transaction *tx = calloc(1, mem_size);
 
   if (deserialize_tx(&r, tx) != 0) {
     return 1;
@@ -80,11 +84,6 @@ int handle_tx(Message *message, node_ctx *ctx) {
 
   // Check we don't already have this transaction
   if (mempool_contains(ctx->mempool, tx) == 0) {
-    return 1;
-  }
-
-  account *from = get_account(ctx->current_state, tx->from);
-  if (validate_tx(tx, ctx->current_state, from, ctx->current_block) == 1) {
     return 1;
   }
 

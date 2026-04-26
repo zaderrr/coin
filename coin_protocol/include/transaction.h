@@ -4,6 +4,8 @@
 #include "wallet.h"
 #include <stdint.h>
 
+#define TX_WIRE_FIXED_SIZE (4 + 1 + 32 + 32 + 8 + 8 + 4 + 64)
+
 typedef enum {
   TX_TRANSFER,
   TX_STAKE_DEPOSIT,

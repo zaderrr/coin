@@ -73,8 +73,10 @@ int create_block_transactions(block *next_block, node_ctx *ctx) {
   next_block->tx_size += get_tx_size(block_tx[0]);
   for (int i = 0; i < mempool->tx_count; i++) {
     int tx_size = get_tx_size(mempool->tx[i]);
-    transaction *tx = calloc(1, tx_size);
-    *tx = *mempool->tx[i];
+    size_t mem_size = sizeof(transaction) + mempool->tx[i]->body_size;
+    transaction *tx = malloc(mem_size);
+    memcpy(tx, mempool->tx[i], mem_size);
+
     account *account = get_account(current_state, tx->from);
     if (validate_tx(tx, current_state, account, next_block) == 0) {
       block_tx[tx_count] = tx;
