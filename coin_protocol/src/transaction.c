@@ -4,6 +4,7 @@
 #include "message.h"
 #include "util.h"
 #include "wallet.h"
+#include <blst.h>
 #include <netinet/in.h>
 #include <stdint.h>
 #include <string.h>
@@ -37,6 +38,33 @@ int serialize_tx(Writer *w, transaction *tx, bool include_signature) {
   }
 
   return 0;
+}
+
+int get_stake_body(transaction *tx, tx_stake_body *stake_body) {
+  Reader r = {tx->body, tx->body + tx->body_size};
+
+  READ_FIELD(&r, stake_body->bls_pk, sizeof(stake_body->bls_pk));
+  READ_FIELD(&r, stake_body->pop, sizeof(stake_body->pop));
+
+  return 0;
+}
+
+int verify_pop(unsigned char *pop, unsigned char *bls_pk) {
+  blst_p2_affine pk_affine;
+  blst_p1_affine sig_affine;
+
+  blst_p2_uncompress(&pk_affine, bls_pk);
+  blst_p1_uncompress(&sig_affine, pop);
+
+  char *DST = "COIN_POP_V1";
+  BLST_ERROR val =
+      blst_core_verify_pk_in_g2(&pk_affine, &sig_affine, true, bls_pk, 96,
+                                (unsigned char *)DST, strlen(DST), NULL, 0);
+
+  if (val == BLST_SUCCESS) {
+    return 0;
+  }
+  return 1;
 }
 
 // Writes signature of transaction to tx.signature and copies signature to buff

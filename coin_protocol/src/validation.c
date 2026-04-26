@@ -2,6 +2,7 @@
 #include "ed25519.h"
 #include "state.h"
 #include "transaction.h"
+#include "util.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -86,11 +87,18 @@ int validate_stake_deposit(transaction *tx, state *state, account *from) {
   }
 
   tx_stake_body stake_body = {0};
-  memcpy(&stake_body.bls_pk, tx->body, tx->body_size);
+  get_stake_body(tx, &stake_body);
+  int res = verify_pop(stake_body.pop, stake_body.bls_pk);
+
+  if (res == 1) {
+    return 1;
+  }
+
   unsigned char null_addr[32] = {0};
   if (memcmp(tx->to, null_addr, 32) != 0) {
     return 1;
   }
+
   if (validate_funds(from, state, tx) == 1) {
     return 1;
   }

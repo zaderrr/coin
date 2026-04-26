@@ -1,7 +1,9 @@
 #include "state.h"
 #include "block.h"
+#include "transaction.h"
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 bool is_validator_active(validator *validator) {
   if (validator == NULL) {
@@ -64,9 +66,15 @@ int create_new_validator(state *current_state, transaction *tx) {
       realloc(current_state->validators, sizeof(validator) * count);
 
   validator new = {0};
+  tx_stake_body stake_body = {0};
+  get_stake_body(tx, &stake_body);
+
   new.activity = malloc(sizeof(validator_activity) * 1);
   new.activity_length = 1;
-  memcpy(new.public_key, tx->from, 32);
+
+  memcpy(new.public_key, tx->from, sizeof(tx->from));
+  memcpy(new.bls_key, stake_body.bls_pk, sizeof(stake_body.bls_pk));
+  memcpy(new.bls_pop, stake_body.pop, sizeof(stake_body.pop));
 
   if (new_validators == NULL) {
     current_state->validators_count--;

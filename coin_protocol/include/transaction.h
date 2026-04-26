@@ -40,5 +40,7 @@ int create_tx(transaction *tx, unsigned char *to, Wallet *wallet,
 int get_tx_size(transaction *tx);
 int serialize_tx(Writer *writer, transaction *tx, bool include_signature);
 int sign_transaction(transaction *tx, Wallet *wallet, unsigned char *buff);
+int get_stake_body(transaction *tx, tx_stake_body *stake_body);
+int verify_pop(unsigned char *pop, unsigned char *bls_pk);
 int create_block_reward(unsigned char *to, transaction *tx);
 #endif
