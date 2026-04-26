@@ -85,13 +85,8 @@ int validate_stake_deposit(transaction *tx, state *state, account *from) {
     return 1;
   }
 
-  tx_stake_body test = {0};
-  memcpy(&test.bls_pk, tx->body, tx->body_size);
-  printf("Received: 0x");
-  for (int i = 0; i < sizeof(test.bls_pk); i++) {
-    printf("%02x", test.bls_pk[i]);
-  }
-  printf("\n");
+  tx_stake_body stake_body = {0};
+  memcpy(&stake_body.bls_pk, tx->body, tx->body_size);
   unsigned char null_addr[32] = {0};
   if (memcmp(tx->to, null_addr, 32) != 0) {
     return 1;

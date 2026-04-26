@@ -11,15 +11,15 @@ typedef struct state state;
 
 typedef struct block {
   uint64_t height;
+  uint64_t timestamp;
+  transaction **transactions;
+  uint32_t tx_size;
+  uint32_t tx_count;
   uint8_t prev_hash[32];
   uint8_t state_root[32];
   uint8_t validator_root[32];
   uint8_t tx_root[32];
-  uint64_t timestamp;
-  unsigned char proposer[32];
-  uint32_t tx_count;
-  uint32_t tx_size;
-  transaction **transactions;
+  uint8_t proposer[32];
   uint8_t signature[64];
 } block;
 

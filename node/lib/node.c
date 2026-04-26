@@ -190,6 +190,7 @@ int add_node(node_ctx *ctx, block *next_block) {
 }
 
 void display_state(node_ctx *ctx) {
+  clear_term();
   printf("Accounts: %u\n", ctx->current_state->accounts_count);
   for (int i = 0; i < ctx->current_state->accounts_count; i++) {
     format_pub(ctx->current_state->accounts[i].public_key);
@@ -350,7 +351,7 @@ bool read_block_file(node_ctx *ctx, config *cfg) {
   num_blocks = file_num_blocks;
   int last_good = 0;
   for (int i = 0; i < file_num_blocks; i++) {
-    block *block_read = malloc(sizeof(block));
+    block *block_read = calloc(1, sizeof(block));
 
     last_good = ftell(block_file);
     if (read_block(&last_good, block_read, ctx) == false) {

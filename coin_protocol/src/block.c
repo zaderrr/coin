@@ -46,7 +46,7 @@ int get_block_size(block *block) {
   if (block == NULL) {
     return -1;
   }
-  int size = 32 + 32 + 32 + 32 + 32 + 64 + 8 + 8 + 4 + block->tx_size;
+  int size = 32 + 32 + 32 + 32 + 32 + 64 + 8 + 8 + 4 + 4 + block->tx_size;
 
   return size;
 }
@@ -88,39 +88,37 @@ int serialize_block(block *next_block, unsigned char *buff,
 }
 
 int deserialize_block(unsigned char *buff, int length, block *out) {
-  block next_block = {0};
   Reader r = {buff, buff + length};
 
-  READ_FIELD(&r, next_block.height, sizeof(next_block.height));
-  READ_FIELD(&r, next_block.prev_hash, sizeof(next_block.prev_hash));
-  READ_FIELD(&r, next_block.state_root, sizeof(next_block.state_root));
-  READ_FIELD(&r, next_block.validator_root, sizeof(next_block.validator_root));
-  READ_FIELD(&r, next_block.tx_root, sizeof(next_block.tx_root));
-  READ_FIELD(&r, next_block.timestamp, sizeof(next_block.timestamp));
-  READ_FIELD(&r, next_block.proposer, sizeof(next_block.proposer));
-  READ_FIELD(&r, next_block.tx_count, sizeof(next_block.tx_count));
-  READ_FIELD(&r, next_block.tx_size, sizeof(next_block.tx_size));
+  READ_FIELD(&r, out->height, sizeof(out->height));
+  READ_FIELD(&r, out->prev_hash, sizeof(out->prev_hash));
+  READ_FIELD(&r, out->state_root, sizeof(out->state_root));
+  READ_FIELD(&r, out->validator_root, sizeof(out->validator_root));
+  READ_FIELD(&r, out->tx_root, sizeof(out->tx_root));
+  READ_FIELD(&r, out->timestamp, sizeof(out->timestamp));
+  READ_FIELD(&r, out->proposer, sizeof(out->proposer));
+  READ_FIELD(&r, out->tx_count, sizeof(out->tx_count));
+  READ_FIELD(&r, out->tx_size, sizeof(out->tx_size));
 
-  next_block.tx_count = ntohl(next_block.tx_count);
-  next_block.height = htonll(next_block.height);
-  next_block.timestamp = htonll(next_block.timestamp);
-  next_block.tx_size = htonl(ntohl(next_block.tx_size));
+  out->tx_count = ntohl(out->tx_count);
+  out->height = htonll(out->height);
+  out->timestamp = htonll(out->timestamp);
+  out->tx_size = ntohl(out->tx_size);
 
-  next_block.transactions = malloc(next_block.tx_count * sizeof(transaction *));
+  out->transactions = malloc(out->tx_count * sizeof(transaction *));
 
-  for (int i = 0; i < next_block.tx_count; i++) {
+  for (int i = 0; i < out->tx_count; i++) {
     int tx_size = 0;
     READ_FIELD(&r, tx_size, sizeof(tx_size));
     tx_size = ntohl(tx_size);
-    transaction *tx = malloc(tx_size);
+    transaction *tx = calloc(1, tx_size);
     if (deserialize_tx(&r, tx) == 1) {
       return 1;
     }
-    next_block.transactions[i] = tx;
+    out->transactions[i] = tx;
   }
 
-  READ_FIELD(&r, next_block.signature, sizeof(next_block.signature));
-  memcpy(out, &next_block, sizeof(next_block));
+  READ_FIELD(&r, out->signature, sizeof(out->signature));
 
   return 0;
 }
