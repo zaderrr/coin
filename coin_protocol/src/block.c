@@ -111,7 +111,10 @@ int deserialize_block(unsigned char *buff, int length, block *out) {
     int tx_size = 0;
     READ_FIELD(&r, tx_size, sizeof(tx_size));
     tx_size = ntohl(tx_size);
-    transaction *tx = calloc(1, tx_size);
+    int32_t body_size = tx_size - TX_WIRE_FIXED_SIZE;
+    size_t mem_size = sizeof(transaction) + body_size;
+    transaction *tx = calloc(1, mem_size);
+
     if (deserialize_tx(&r, tx) == 1) {
       return 1;
     }

@@ -21,6 +21,11 @@ typedef enum MessageType {
   VOTE,
 } MessageType;
 
+typedef enum {
+  COMMIT,
+  SKIP,
+} vote_type;
+
 typedef struct MessageHeader {
   enum MessageType type;
   uint32_t payload_len;
@@ -30,6 +35,13 @@ typedef struct Message {
   MessageHeader *header;
   uint8_t *payload;
 } Message;
+
+typedef struct {
+  uint64_t height;
+  vote_type type;
+  uint8_t ident[32];
+  uint8_t signature[48];
+} Vote;
 
 typedef struct Handshake {
   unsigned char identity[32];

@@ -7,6 +7,7 @@
 #include "server.h"
 #include "time.h"
 #include "transaction.h"
+#include "util.h"
 #include "validation.h"
 #include <netinet/in.h>
 #include <sodium.h>
@@ -20,13 +21,11 @@ static uint64_t num_blocks = 0;
 static FILE *block_file;
 
 int compare_tx(const void *a, const void *b) {
-  transaction *ta = (transaction *)a;
-  transaction *tb = (transaction *)b;
-
+  const transaction *ta = *(const transaction *const *)a;
+  const transaction *tb = *(const transaction *const *)b;
   int cmp = memcmp(ta->from, tb->from, 32);
   if (cmp != 0)
     return cmp;
-
   if (ta->nonce < tb->nonce)
     return -1;
   if (ta->nonce > tb->nonce)
@@ -62,7 +61,7 @@ int create_block_transactions(block *next_block, node_ctx *ctx) {
   int tx_count = 0;
 
   // Sorts by account by nonce
-  qsort(mempool->tx, mempool->tx_count, sizeof(transaction), compare_tx);
+  qsort(mempool->tx, mempool->tx_count, sizeof(transaction *), compare_tx);
 
   // Create reward tx
   transaction *t = calloc(1, sizeof(transaction));
@@ -72,20 +71,19 @@ int create_block_transactions(block *next_block, node_ctx *ctx) {
   tx_count++;
   next_block->tx_size += get_tx_size(block_tx[0]);
   for (int i = 0; i < mempool->tx_count; i++) {
-    int tx_size = get_tx_size(mempool->tx[i]);
-    size_t mem_size = sizeof(transaction) + mempool->tx[i]->body_size;
-    transaction *tx = malloc(mem_size);
-    memcpy(tx, mempool->tx[i], mem_size);
-
+    transaction *tx = mempool->tx[i];
+    print_public_key(tx->from);
     account *account = get_account(current_state, tx->from);
     if (validate_tx(tx, current_state, account, next_block) == 0) {
-      block_tx[tx_count] = tx;
+      size_t mem_size = sizeof(transaction) + tx->body_size;
+      block_tx[tx_count] = malloc(mem_size);
+      memcpy(block_tx[tx_count], tx, mem_size);
       tx_count++;
       update_state(current_state, tx, next_block);
       next_block->tx_size += get_tx_size(tx);
-    } else {
-      free(tx);
     }
+
+    free(tx);
   }
 
   next_block->transactions = block_tx;

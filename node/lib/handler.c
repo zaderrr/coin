@@ -7,6 +7,7 @@
 #include "transaction.h"
 #include "util.h"
 #include "validation.h"
+#include <blst.h>
 #include <netinet/in.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -15,6 +16,21 @@
 #include <sys/types.h>
 
 #define MAX_BLOCKS_PER_REQUEST 500
+#define VOTE_SIZE 44 + 48
+
+int serialize_vote(Vote *vote, uint8_t *out) {
+  Writer w = {out, out + 44 + 48};
+
+  uint64_t height_n = htonll(vote->height);
+  uint32_t type_n = htonl(vote->type);
+
+  WRITE_FIELD(&w, height_n, sizeof(vote->height));
+  WRITE_FIELD(&w, type_n, sizeof(vote->type));
+  WRITE_FIELD(&w, vote->ident, sizeof(vote->ident));
+  WRITE_FIELD(&w, vote->signature, sizeof(vote->signature));
+
+  return 0;
+}
 
 int mempool_contains(mempool *pool, transaction *tx) {
   for (int i = 0; i < pool->tx_count; i++) {
@@ -107,6 +123,65 @@ int free_block(block *block) {
   return 0;
 }
 
+int sign_vote(Vote *vote, Wallet *wallet) {
+  blst_p1 sig;
+  blst_p1 hash;
+
+  blst_scalar sk_scalar;
+  blst_scalar_from_bendian(&sk_scalar, wallet->bls_sk);
+
+  char *DST = "COIN_VOTE_COMMIT_V1";
+
+  uint8_t vote_hash[44];
+
+  Writer w = {vote_hash, vote_hash + sizeof(vote_hash)};
+  WRITE_FIELD(&w, vote->height, sizeof(vote->height));
+  WRITE_FIELD(&w, vote->type, sizeof(vote->type));
+  WRITE_FIELD(&w, vote->ident, sizeof(vote->ident));
+
+  blst_hash_to_g1(&hash, vote_hash, sizeof(vote_hash), (unsigned char *)DST,
+                  strlen(DST), NULL, 0);
+
+  blst_sign_pk_in_g2(&sig, &hash, &sk_scalar);
+
+  blst_p1_compress(vote->signature, &sig);
+
+  explicit_bzero(&sk_scalar, sizeof(sk_scalar));
+
+  return 0;
+}
+
+int verify_vote(Vote *vote, unsigned char *bls_pk, unsigned char *vote_bytes) {
+  blst_p1_affine sig;
+  blst_p2_affine pk;
+
+  blst_p2_uncompress(&pk, bls_pk);
+  blst_p1_uncompress(&sig, vote->signature);
+
+  char *DST = "COIN_VOTE_COMMIT_V1";
+  BLST_ERROR res =
+      blst_core_verify_pk_in_g2(&pk, &sig, true, vote_bytes, VOTE_SIZE,
+                                (unsigned char *)DST, strlen(DST), NULL, 0);
+  if (res == BLST_SUCCESS) {
+    return 0;
+  }
+  return 1;
+}
+
+int create_vote(block *vote_block, Wallet *wallet, Vote *out) {
+  Vote block_vote = {0};
+  block_vote.height = vote_block->height;
+  block_vote.type = COMMIT;
+
+  uint8_t block_hash[32];
+  hash_block(vote_block, block_hash);
+  memcpy(block_vote.ident, block_hash, sizeof(block_hash));
+
+  sign_vote(&block_vote, wallet);
+  *out = block_vote;
+  return 0;
+};
+
 int handle_block_proposal(unsigned char *payload, node_ctx *ctx, int length) {
   block *new_block = malloc(sizeof(block));
 
@@ -124,7 +199,8 @@ int handle_block_proposal(unsigned char *payload, node_ctx *ctx, int length) {
     free_block(new_block);
     return 1;
   }
-
+  Vote *valid_vote = malloc(sizeof(Vote));
+  create_vote(new_block, ctx->wallet, valid_vote);
   add_node(ctx, new_block);
   write_block_to_file(new_block);
   unsigned char send_buff[length + HEADER_SIZE];
