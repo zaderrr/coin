@@ -51,7 +51,7 @@ int init_wallet(Wallet *wallet, char walletLoc[512]) {
   get_password(password);
   if (fptr == NULL) {
     printf("Creating wallet...\n");
-    create_wallet(wallet, password);
+    create_wallet(wallet);
     struct FileEncryption *file;
     file = malloc(sizeof(struct FileEncryption));
     encrypt_keys(wallet, password, file);

@@ -66,7 +66,7 @@ int create_pop(Wallet *wallet, unsigned char *sig_out) {
   return 0;
 }
 
-int create_wallet(Wallet *wallet, char *password) {
+int create_wallet(Wallet *wallet) {
   if (generate_wallet(wallet->public_key, wallet->private_key) != 1) {
     printf("problem generating wallet\n");
     return 1;

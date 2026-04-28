@@ -23,3 +23,7 @@ add_executable(test_block tests/test_block.c)
 target_link_libraries(test_block coin_protocol)
 add_test(NAME test_block COMMAND test_block)
 
+add_executable(test_protocol_transaction tests/test_transaction.c)
+target_link_libraries(test_protocol_transaction coin_protocol)
+add_test(NAME test_protocol_transaction COMMAND test_protocol_transaction)
+
