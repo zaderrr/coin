@@ -139,26 +139,17 @@ int validate_previous_hash(block *val_block, block *prev_block) {
   return 0;
 }
 
-int build_new_state(block *val_block, state *current_state) {
-  state built_state;
-  if (copy_state(&built_state, current_state) == 1) {
-    printf("Failed copying\n");
-    return 1;
-  }
+int build_new_state(block *val_block, state *built_state) {
   for (size_t i = 0; i < val_block->tx_count; i++) {
     transaction *tx = val_block->transactions[i];
-    account *acc = get_account(&built_state, tx->from);
+    account *acc = get_account(built_state, tx->from);
 
-    if (validate_tx(tx, &built_state, acc, val_block) != 0) {
+    if (validate_tx(tx, built_state, acc, val_block) != 0) {
       printf("Invalid tx at index %zu\n", i);
-      free_state_contents(&built_state);
       return 1;
     }
-    update_state(&built_state, tx, val_block);
+    update_state(built_state, tx, val_block);
   }
-
-  free_state_contents(current_state);
-  *current_state = built_state;
   return 0;
 }
 
@@ -178,6 +169,7 @@ int validate_roots(block *val_block, state *state) {
     printf("State hash does not match\n");
     return 0;
   }
+
   build_validators_hash(state->validators, val_merkle, state->validators_count);
   if (memcmp(val_merkle, val_block->validator_root, 32) != 0) {
     printf("Validator hash does not match\n");
@@ -192,9 +184,11 @@ int validate_block(block *val_block, block *prev_block, state *state) {
   if (val == NULL) {
     return 0;
   }
+
   if (memcmp(val_block->proposer, val->public_key, 32) != 0) {
     return 0;
   }
+
   if (validate_previous_hash(val_block, prev_block) == 1) {
     return 0;
   }
@@ -202,14 +196,22 @@ int validate_block(block *val_block, block *prev_block, state *state) {
   if (val_block->height != prev_block->height + 1) {
     return 0;
   }
-  if (build_new_state(val_block, state) == 1) {
+  // Have to build next state to validate roots
+  struct state *built_state;
+  built_state = malloc(sizeof(struct state));
+  if (copy_state(built_state, state) == 1) {
+    printf("Failed copying\n");
+    return 1;
+  }
+  if (build_new_state(val_block, built_state) == 1) {
     printf("Failed to build state\n");
   } else {
   }
 
-  if (validate_roots(val_block, state) == 0) {
+  if (validate_roots(val_block, built_state) == 0) {
     return 0;
   }
-
+  copy_state(state, built_state);
+  free_state_contents(built_state);
   return 1;
 }

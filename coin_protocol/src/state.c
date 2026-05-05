@@ -204,7 +204,6 @@ int update_state(state *current_state, transaction *tx, block *next_block) {
 }
 
 int copy_state(state *built_state, state *current_state) {
-
   *built_state = *current_state;
 
   size_t acc_bytes = sizeof(account) * current_state->accounts_count;
